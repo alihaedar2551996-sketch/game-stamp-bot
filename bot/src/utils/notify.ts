@@ -1,6 +1,7 @@
 import { Bot } from "grammy";
+import { isGameComplete } from "../db/client";
 
-// إشعار المستخدم عند تختيم مرحلة
+// FIX #5: التحقق الفعلي من قاعدة البيانات بدل مقارنة رقم المرحلة
 export async function notifyStageComplete(
   bot: Bot,
   tgId: number,
@@ -8,11 +9,12 @@ export async function notifyStageComplete(
   gameName: string,
   stageNumber: number,
   stageName: string,
-  totalStages: number
+  totalStages: number,
+  gameId: number
 ) {
-  const isLastStage = stageNumber === totalStages;
+  const gameComplete = await isGameComplete(tgId, gameId, totalStages);
 
-  if (isLastStage) {
+  if (gameComplete) {
     await bot.api.sendMessage(
       tgId,
       `🎉 *مبروك! أكملت لعبة ${gameEmoji} ${gameName} بالكامل!*\n\n` +

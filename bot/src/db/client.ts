@@ -6,7 +6,6 @@ export const db = createClient({
 });
 
 export async function initDB() {
-  // Run each CREATE TABLE separately — avoids migration job API issues
   const tables = [
     `CREATE TABLE IF NOT EXISTS users (
       id         INTEGER PRIMARY KEY,
@@ -103,21 +102,24 @@ export async function getCompletedStages(tgId: number, gameId: number) {
   return res.rows.map(r => Number(r.stage_id));
 }
 
+// FIX #3: تحقق من rowsAffected بدل ما ترجع true دايماً
 export async function stampStage(tgId: number, gameId: number, stageId: number) {
   try {
-    await db.execute({
+    const result = await db.execute({
       sql: `INSERT OR IGNORE INTO progress (user_id, game_id, stage_id) VALUES (?, ?, ?)`,
       args: [tgId, gameId, stageId],
     });
-    return true;
+    // rowsAffected === 0 يعني كانت مختومة مسبقاً
+    return Number(result.rowsAffected) > 0;
   } catch {
     return false;
   }
 }
 
+// FIX #4: COUNT(DISTINCT stage_id) بدل COUNT(*) لضمان دقة الحساب
 export async function isGameComplete(tgId: number, gameId: number, totalStages: number) {
   const res = await db.execute({
-    sql: `SELECT COUNT(*) as cnt FROM progress WHERE user_id = ? AND game_id = ?`,
+    sql: `SELECT COUNT(DISTINCT stage_id) as cnt FROM progress WHERE user_id = ? AND game_id = ?`,
     args: [tgId, gameId],
   });
   return Number(res.rows[0].cnt) >= totalStages;
