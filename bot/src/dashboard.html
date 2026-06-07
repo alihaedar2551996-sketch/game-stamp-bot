@@ -58,6 +58,12 @@
     .game-card { background: var(--surface-secondary); border-radius: var(--radius-lg); padding: var(--space-4); }
     .game-card-title { font-size: 13px; font-weight: 600; margin-bottom: var(--space-2); }
     .loading { text-align: center; padding: var(--space-8); color: var(--text-muted); }
+    .balance-badge { display: inline-flex; align-items: center; gap: 4px; background: #d1fae5; color: #065f46; padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+    .amount-row { display: flex; gap: var(--space-2); }
+    .amount-row .input { flex: 1; }
+    .quick-btns { display: flex; gap: var(--space-2); flex-wrap: wrap; margin-top: var(--space-2); }
+    .quick-btn { padding: 4px 12px; border-radius: var(--radius-md); border: 1px solid var(--border-default); background: var(--surface-secondary); cursor: pointer; font-size: 13px; font-weight: 500; }
+    .quick-btn:hover { background: var(--surface-hover); }
   </style>
 </head>
 <body>
@@ -85,6 +91,7 @@
       <button class="nav-item" onclick="showPage('users',this)">👥 <span>المستخدمون</span></button>
       <button class="nav-item" onclick="showPage('stamps',this)">🏅 <span>سجل التختيمات</span></button>
       <button class="nav-item" onclick="showPage('stamp',this)">✅ <span>تختيم مرحلة</span></button>
+      <button class="nav-item" onclick="showPage('balance',this)">💵 <span>إضافة رصيد</span></button>
       <div class="sidebar-bottom">
         <button class="theme-toggle nav-item" style="width:100%;justify-content:flex-start;gap:var(--space-3)">
           <svg class="icon-sun" width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M17.657 17.657l-.707-.707M6.343 6.343l-.707-.707M12 8a4 4 0 100 8 4 4 0 000-8z"/></svg>
@@ -141,12 +148,43 @@
           <button class="btn btn-primary" style="width:100%" onclick="doStamp()">✅ تختيم وإرسال إشعار</button>
         </div>
       </div>
+
+      <!-- Balance -->
+      <div id="page-balance" class="page">
+        <div class="page-header"><div class="page-title">💵 إضافة رصيد</div></div>
+        <div class="table-card" style="padding:var(--space-6);max-width:520px">
+          <div class="form-group">
+            <label class="form-label">👤 المستخدم</label>
+            <select id="balanceUser" onchange="showUserBalance()"><option value="">-- اختر مستخدم --</option></select>
+            <div id="currentBalanceDisplay" style="margin-top:var(--space-2);font-size:13px;color:var(--text-muted)"></div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">💰 المبلغ بالدولار (سالب للخصم)</label>
+            <div class="amount-row">
+              <input type="number" class="input" id="balanceAmount" placeholder="مثال: 5.00" step="0.01" />
+            </div>
+            <div class="quick-btns">
+              <button class="quick-btn" onclick="setAmount(1)">+$1</button>
+              <button class="quick-btn" onclick="setAmount(2)">+$2</button>
+              <button class="quick-btn" onclick="setAmount(5)">+$5</button>
+              <button class="quick-btn" onclick="setAmount(10)">+$10</button>
+              <button class="quick-btn" onclick="setAmount(20)">+$20</button>
+              <button class="quick-btn" onclick="setAmount(50)">+$50</button>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">📝 ملاحظة (اختياري)</label>
+            <input type="text" class="input" id="balanceNote" placeholder="مثال: مكافأة إتمام اللعبة" />
+          </div>
+          <button class="btn btn-primary" style="width:100%" onclick="doAddBalance()">💵 إضافة وإرسال إشعار</button>
+        </div>
+      </div>
+
     </main>
   </div>
 </div>
 
 <div class="toast" id="toast"></div>
-
 <div class="modal-overlay" id="modal" onclick="if(event.target===this)closeModal()">
   <div class="modal">
     <div class="modal-title" id="modalTitle"></div>
@@ -161,7 +199,6 @@ const API_BASE = window.location.origin;
 let API_KEY = "";
 let allUsers = [];
 
-// ── Auth using ?key= query param (bypasses proxy header stripping) ──
 async function apiFetch(path, options = {}) {
   try {
     const sep = path.includes("?") ? "&" : "?";
@@ -191,7 +228,6 @@ async function doLogin() {
 }
 
 function logout() { localStorage.removeItem("admin_key"); location.reload(); }
-
 document.getElementById("apiKeyInput").addEventListener("keydown", e => { if(e.key==="Enter") doLogin(); });
 
 const saved = localStorage.getItem("admin_key");
@@ -215,6 +251,7 @@ function showPage(name, btn) {
   if (name==="users") loadUsers();
   if (name==="stamps") loadStampsLog();
   if (name==="stamp") loadStampForm();
+  if (name==="balance") loadBalanceForm();
 }
 
 function initDashboard() { loadOverview(); }
@@ -237,8 +274,18 @@ async function loadUsers() {
 }
 function renderUsers(users) {
   if (!users.length) { document.getElementById("usersTable").innerHTML=`<div class="loading">لا يوجد مستخدمون</div>`; return; }
-  document.getElementById("usersTable").innerHTML = `<table><thead><tr><th>الاسم</th><th>يوزرنيم</th><th>Telegram ID</th><th>التختيمات</th><th></th></tr></thead><tbody>
-    ${users.map(u=>`<tr><td><strong>${u.first_name}</strong></td><td style="color:var(--text-muted)">${u.username?`@${u.username}`:"—"}</td><td><code style="font-size:12px;background:var(--surface-secondary);padding:2px 6px;border-radius:4px">${u.tg_id}</code></td><td><span class="badge">${u.total_stamps} تختيم</span></td><td><button class="btn btn-ghost btn-sm" onclick="viewUser(${u.tg_id},'${u.first_name}')">تقدمه</button></td></tr>`).join("")}
+  document.getElementById("usersTable").innerHTML = `<table><thead><tr><th>الاسم</th><th>يوزرنيم</th><th>Telegram ID</th><th>التختيمات</th><th>الرصيد</th><th></th></tr></thead><tbody>
+    ${users.map(u=>`<tr>
+      <td><strong>${u.first_name}</strong></td>
+      <td style="color:var(--text-muted)">${u.username?`@${u.username}`:"—"}</td>
+      <td><code style="font-size:12px;background:var(--surface-secondary);padding:2px 6px;border-radius:4px">${u.tg_id}</code></td>
+      <td><span class="badge">${u.total_stamps} تختيم</span></td>
+      <td><span class="balance-badge">💵 $${Number(u.balance??0).toFixed(2)}</span></td>
+      <td>
+        <button class="btn btn-ghost btn-sm" onclick="viewUser(${u.tg_id},'${u.first_name}')">تقدمه</button>
+        <button class="btn btn-ghost btn-sm" onclick="quickBalance(${u.tg_id},'${u.first_name}',${u.balance??0})" style="color:var(--green-700)">+ رصيد</button>
+      </td>
+    </tr>`).join("")}
   </tbody></table>`;
 }
 function filterUsers() {
@@ -254,6 +301,41 @@ async function viewUser(tgId, name) {
   }).join("")}</div>`;
   document.getElementById("modalActions").innerHTML = `<button class="btn btn-secondary" onclick="closeModal()">إغلاق</button>`;
   openModal();
+}
+
+// إضافة رصيد سريع من جدول المستخدمين
+function quickBalance(tgId, name, currentBalance) {
+  document.getElementById("modalTitle").textContent = `💵 إضافة رصيد لـ ${name}`;
+  document.getElementById("modalBody").innerHTML = `
+    <p style="color:var(--text-muted);margin-bottom:var(--space-4)">الرصيد الحالي: <strong>$${Number(currentBalance).toFixed(2)}</strong></p>
+    <div class="form-group">
+      <label class="form-label">المبلغ بالدولار</label>
+      <input type="number" class="input" id="quickAmount" placeholder="5.00" step="0.01" />
+      <div class="quick-btns" style="margin-top:var(--space-2)">
+        <button class="quick-btn" onclick="document.getElementById('quickAmount').value=1">+$1</button>
+        <button class="quick-btn" onclick="document.getElementById('quickAmount').value=2">+$2</button>
+        <button class="quick-btn" onclick="document.getElementById('quickAmount').value=5">+$5</button>
+        <button class="quick-btn" onclick="document.getElementById('quickAmount').value=10">+$10</button>
+        <button class="quick-btn" onclick="document.getElementById('quickAmount').value=20">+$20</button>
+        <button class="quick-btn" onclick="document.getElementById('quickAmount').value=50">+$50</button>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">ملاحظة (اختياري)</label>
+      <input type="text" class="input" id="quickNote" placeholder="مثال: مكافأة" />
+    </div>`;
+  document.getElementById("modalActions").innerHTML = `
+    <button class="btn btn-secondary" onclick="closeModal()">إلغاء</button>
+    <button class="btn btn-primary" onclick="submitQuickBalance(${tgId})">💵 إضافة وإرسال إشعار</button>`;
+  openModal();
+}
+async function submitQuickBalance(tgId) {
+  const amount = parseFloat(document.getElementById("quickAmount").value);
+  const note = document.getElementById("quickNote").value.trim();
+  if (isNaN(amount) || amount === 0) { showToast("⚠️ أدخل مبلغاً صحيحاً"); return; }
+  const res = await apiFetch("/api/balance", { method: "POST", body: JSON.stringify({ tgId, amount, note: note || undefined }) });
+  if (res.error) showToast(`❌ ${res.error}`);
+  else { showToast(`✅ تم! الرصيد الجديد: $${res.newBalance.toFixed(2)}`); closeModal(); loadUsers(); }
 }
 
 async function loadStampsLog() {
@@ -276,7 +358,6 @@ async function loadStages() {
   document.getElementById("stampStage").innerHTML = `<option value="">-- اختر مرحلة --</option>`+stages.map(s=>`<option value="${s.id}">المرحلة ${s.number}: ${s.name}</option>`).join("");
 }
 function loadGameStages() {}
-
 async function doStamp() {
   const tgId=Number(document.getElementById("stampUser").value);
   const gameId=Number(document.getElementById("stampGame").value);
@@ -285,6 +366,36 @@ async function doStamp() {
   const res = await apiFetch("/api/stamp", { method:"POST", body: JSON.stringify({tgId,gameId,stageId}) });
   if (res.error) showToast(`❌ ${res.error==="Already stamped or DB error"?"مختومة مسبقاً!":res.error}`);
   else { showToast(res.gameComplete?"🎉 اللعبة مكتملة!":"✅ تم التختيم وإرسال الإشعار!"); document.getElementById("stampStage").innerHTML=`<option value="">-- اختر مرحلة --</option>`; }
+}
+
+// ── Balance Page ──────────────────────────────────────────
+async function loadBalanceForm() {
+  const users = await apiFetch("/api/users");
+  document.getElementById("balanceUser").innerHTML = `<option value="">-- اختر مستخدم --</option>`+users.map(u=>`<option value="${u.tg_id}" data-balance="${u.balance??0}">${u.first_name}${u.username?` (@${u.username})`:""}</option>`).join("");
+  document.getElementById("currentBalanceDisplay").textContent = "";
+}
+function showUserBalance() {
+  const sel = document.getElementById("balanceUser");
+  const opt = sel.options[sel.selectedIndex];
+  if (!opt.value) { document.getElementById("currentBalanceDisplay").textContent = ""; return; }
+  const bal = parseFloat(opt.dataset.balance || 0);
+  document.getElementById("currentBalanceDisplay").textContent = `💵 الرصيد الحالي: $${bal.toFixed(2)}`;
+}
+function setAmount(val) { document.getElementById("balanceAmount").value = val; }
+async function doAddBalance() {
+  const tgId = Number(document.getElementById("balanceUser").value);
+  const amount = parseFloat(document.getElementById("balanceAmount").value);
+  const note = document.getElementById("balanceNote").value.trim();
+  if (!tgId) { showToast("⚠️ اختر مستخدماً"); return; }
+  if (isNaN(amount) || amount === 0) { showToast("⚠️ أدخل مبلغاً صحيحاً"); return; }
+  const res = await apiFetch("/api/balance", { method: "POST", body: JSON.stringify({ tgId, amount, note: note || undefined }) });
+  if (res.error) showToast(`❌ ${res.error}`);
+  else {
+    showToast(`✅ تم! الرصيد الجديد: $${res.newBalance.toFixed(2)}`);
+    document.getElementById("balanceAmount").value = "";
+    document.getElementById("balanceNote").value = "";
+    loadBalanceForm();
+  }
 }
 
 function openModal() { document.getElementById("modal").classList.add("open"); }

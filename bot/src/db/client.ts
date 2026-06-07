@@ -12,6 +12,7 @@ export async function initDB() {
       tg_id      INTEGER UNIQUE NOT NULL,
       username   TEXT,
       first_name TEXT NOT NULL,
+      balance    REAL NOT NULL DEFAULT 0,
       joined_at  TEXT NOT NULL DEFAULT (datetime('now'))
     )`,
     `CREATE TABLE IF NOT EXISTS games (
@@ -37,11 +38,24 @@ export async function initDB() {
       stamped_at TEXT NOT NULL DEFAULT (datetime('now')),
       UNIQUE(user_id, stage_id)
     )`,
+    `CREATE TABLE IF NOT EXISTS balance_log (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id    INTEGER NOT NULL REFERENCES users(tg_id),
+      amount     REAL NOT NULL,
+      note       TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )`,
   ];
 
   for (const sql of tables) {
     await db.execute(sql);
   }
+
+  // إضافة عمود balance إذا ما كان موجود (للـ DB القديمة)
+  try {
+    await db.execute(`ALTER TABLE users ADD COLUMN balance REAL NOT NULL DEFAULT 0`);
+  } catch { /* موجود مسبقاً */ }
+
   console.log("✅ DB initialized");
 }
 
@@ -56,6 +70,30 @@ export async function upsertUser(tgId: number, username: string | undefined, fir
 export async function getAllUsers() {
   const res = await db.execute(`SELECT * FROM users ORDER BY joined_at DESC`);
   return res.rows;
+}
+
+export async function getUserBalance(tgId: number): Promise<number> {
+  const res = await db.execute({
+    sql: `SELECT balance FROM users WHERE tg_id = ?`,
+    args: [tgId],
+  });
+  return res.rows[0] ? Number(res.rows[0].balance) : 0;
+}
+
+export async function addBalance(tgId: number, amount: number, note?: string): Promise<number> {
+  await db.execute({
+    sql: `UPDATE users SET balance = balance + ? WHERE tg_id = ?`,
+    args: [amount, tgId],
+  });
+  await db.execute({
+    sql: `INSERT INTO balance_log (user_id, amount, note) VALUES (?, ?, ?)`,
+    args: [tgId, amount, note ?? null],
+  });
+  const res = await db.execute({
+    sql: `SELECT balance FROM users WHERE tg_id = ?`,
+    args: [tgId],
+  });
+  return Number(res.rows[0].balance);
 }
 
 // ── Games ──────────────────────────────────────────────────
@@ -102,21 +140,18 @@ export async function getCompletedStages(tgId: number, gameId: number) {
   return res.rows.map(r => Number(r.stage_id));
 }
 
-// FIX #3: تحقق من rowsAffected بدل ما ترجع true دايماً
 export async function stampStage(tgId: number, gameId: number, stageId: number) {
   try {
     const result = await db.execute({
       sql: `INSERT OR IGNORE INTO progress (user_id, game_id, stage_id) VALUES (?, ?, ?)`,
       args: [tgId, gameId, stageId],
     });
-    // rowsAffected === 0 يعني كانت مختومة مسبقاً
     return Number(result.rowsAffected) > 0;
   } catch {
     return false;
   }
 }
 
-// FIX #4: COUNT(DISTINCT stage_id) بدل COUNT(*) لضمان دقة الحساب
 export async function isGameComplete(tgId: number, gameId: number, totalStages: number) {
   const res = await db.execute({
     sql: `SELECT COUNT(DISTINCT stage_id) as cnt FROM progress WHERE user_id = ? AND game_id = ?`,
@@ -158,7 +193,7 @@ export async function getRecentStamps(limit = 20) {
 
 export async function getAllUsersWithProgress() {
   const res = await db.execute(`
-    SELECT u.tg_id, u.first_name, u.username, u.joined_at,
+    SELECT u.tg_id, u.first_name, u.username, u.joined_at, u.balance,
            COUNT(p.id) as total_stamps
     FROM users u
     LEFT JOIN progress p ON p.user_id = u.tg_id
