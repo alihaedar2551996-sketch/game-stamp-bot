@@ -1,45 +1,45 @@
 import { db } from "./client";
 
 const GAMES = [
-  { name: "Match Factory",          emoji: "🏭", stages: 15 },
-  { name: "Yarn Loop",              emoji: "🧶", stages: 15 },
-  { name: "Royal Kingdom",          emoji: "👑", stages: 15 },
-  { name: "Board Adventure",        emoji: "🎲", stages: 15 },
-  { name: "Coin Master",            emoji: "🪙", stages: 15 },
-  { name: "Disney Solitaire",       emoji: "🏰", stages: 15 },
-  { name: "Toon Blast",             emoji: "💥", stages: 15 },
-  { name: "Screw Guru",             emoji: "🔩", stages: 15 },
-  { name: "Empires",                emoji: "⚔️", stages: 15 },
-  { name: "Zombie Miner",           emoji: "🧟", stages: 15 },
-  { name: "Family Island",          emoji: "🏝️", stages: 15 },
-  { name: "Domino Dreams",          emoji: "🁣",  stages: 15 },
-  { name: "Goods Master 3D",        emoji: "📦", stages: 15 },
-  { name: "Travel Town",            emoji: "✈️", stages: 15 },
-  { name: "Dice Dreams",            emoji: "🎲", stages: 15 },
-  { name: "Matching Story",         emoji: "🃏", stages: 15 },
-  { name: "Toy Blast",              emoji: "🧸", stages: 15 },
-  { name: "Solitaire Grand Harvest",emoji: "🌾", stages: 15 },
-  { name: "FarmVille 3",            emoji: "🚜", stages: 15 },
-  { name: "Box Jam",                emoji: "📫", stages: 15 },
-  { name: "Glow Tales",             emoji: "✨", stages: 15 },
-  { name: "Soliter Stash",          emoji: "💎", stages: 15 },
-  { name: "Solitaire Cash",         emoji: "💵", stages: 15 },
-  { name: "Phase 10",               emoji: "🔟", stages: 15 },
-  { name: "Love & Fashion",         emoji: "👗", stages: 15 },
-  { name: "Cash Legends",           emoji: "💰", stages: 15 },
-  { name: "Royal Match",            emoji: "🃏", stages: 15 },
-  { name: "Klondike",               emoji: "🏔️", stages: 15 },
-  { name: "Unravel Master",         emoji: "🧵", stages: 15 },
-  { name: "June's Journey",         emoji: "🔍", stages: 15 },
-  { name: "IdleOutpost",            emoji: "🏕️", stages: 15 },
-  { name: "Solitaire Smash",        emoji: "🃏", stages: 15 },
-  { name: "Merge Sweets",           emoji: "🍬", stages: 15 },
-  { name: "Merge Mansion",          emoji: "🏚️", stages: 15 },
-  { name: "MergeDragons! Power",    emoji: "🐉", stages: 15 },
-  { name: "MergeDragons! Level",    emoji: "🐲", stages: 15 },
-  { name: "Screw Tap Jam",          emoji: "🔧", stages: 15 },
-  { name: "Sort Journey",           emoji: "🗂️", stages: 15 },
-  { name: "Immortal",               emoji: "⚡", stages: 15 },
+  { name: "Match Factory",           emoji: "🏭" },
+  { name: "Yarn Loop",               emoji: "🧶" },
+  { name: "Royal Kingdom",           emoji: "👑" },
+  { name: "Board Adventure",         emoji: "🎲" },
+  { name: "Coin Master",             emoji: "🪙" },
+  { name: "Disney Solitaire",        emoji: "🏰" },
+  { name: "Toon Blast",              emoji: "💥" },
+  { name: "Screw Guru",              emoji: "🔩" },
+  { name: "Empires",                 emoji: "⚔️" },
+  { name: "Zombie Miner",            emoji: "🧟" },
+  { name: "Family Island",           emoji: "🏝️" },
+  { name: "Domino Dreams",           emoji: "🎯" },
+  { name: "Goods Master 3D",         emoji: "📦" },
+  { name: "Travel Town",             emoji: "✈️" },
+  { name: "Dice Dreams",             emoji: "🎲" },
+  { name: "Matching Story",          emoji: "🃏" },
+  { name: "Toy Blast",               emoji: "🧸" },
+  { name: "Solitaire Grand Harvest", emoji: "🌾" },
+  { name: "FarmVille 3",             emoji: "🚜" },
+  { name: "Box Jam",                 emoji: "📫" },
+  { name: "Glow Tales",              emoji: "✨" },
+  { name: "Soliter Stash",           emoji: "💎" },
+  { name: "Solitaire Cash",          emoji: "💵" },
+  { name: "Phase 10",                emoji: "🔟" },
+  { name: "Love & Fashion",          emoji: "👗" },
+  { name: "Cash Legends",            emoji: "💰" },
+  { name: "Royal Match",             emoji: "👸" },
+  { name: "Klondike",                emoji: "🏔️" },
+  { name: "Unravel Master",          emoji: "🧵" },
+  { name: "June's Journey",          emoji: "🔍" },
+  { name: "IdleOutpost",             emoji: "🏕️" },
+  { name: "Solitaire Smash",         emoji: "🃏" },
+  { name: "Merge Sweets",            emoji: "🍬" },
+  { name: "Merge Mansion",           emoji: "🏚️" },
+  { name: "MergeDragons! Power",     emoji: "🐉" },
+  { name: "MergeDragons! Level",     emoji: "🐲" },
+  { name: "Screw Tap Jam",           emoji: "🔧" },
+  { name: "Sort Journey",            emoji: "🗂️" },
+  { name: "Immortal",                emoji: "⚡" },
 ];
 
 export async function seedGames() {
@@ -48,20 +48,11 @@ export async function seedGames() {
     console.log("⏭️ Games already seeded");
     return;
   }
-
   for (const game of GAMES) {
-    const res = await db.execute({
-      sql: `INSERT INTO games (name, emoji, total_stages) VALUES (?, ?, ?)`,
-      args: [game.name, game.emoji, game.stages],
+    await db.execute({
+      sql: `INSERT INTO games (name, emoji) VALUES (?, ?)`,
+      args: [game.name, game.emoji],
     });
-    const gameId = Number(res.lastInsertRowid);
-
-    for (let i = 1; i <= game.stages; i++) {
-      await db.execute({
-        sql: `INSERT INTO stages (game_id, number, name) VALUES (?, ?, ?)`,
-        args: [gameId, i, `المرحلة ${i}`],
-      });
-    }
   }
   console.log(`✅ Seeded ${GAMES.length} games`);
 }

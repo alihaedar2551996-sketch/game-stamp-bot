@@ -21,7 +21,6 @@ registerUserHandlers(bot);
 bot.catch((err) => console.error("Bot error:", err.message));
 
 const app = new Hono();
-
 app.use("*", async (c, next) => {
   await next();
   c.res.headers.set("Access-Control-Allow-Origin", "*");
@@ -38,91 +37,88 @@ function auth(c: any): boolean {
 }
 
 const STATIC_DIR = join(import.meta.dir, ".");
-
-app.get("/styles.css", (c) => {
-  const css = readFileSync(join(STATIC_DIR, "styles.css"), "utf-8");
-  return c.text(css, 200, { "Content-Type": "text/css" });
-});
-app.get("/theme.js", (c) => {
-  const js = readFileSync(join(STATIC_DIR, "theme.js"), "utf-8");
-  return c.text(js, 200, { "Content-Type": "application/javascript" });
-});
-app.get("/dashboard", (c) => {
-  const html = readFileSync(join(STATIC_DIR, "dashboard.html"), "utf-8");
-  return c.html(html);
-});
-
-// Health — يرد فوراً بدون انتظار DB
-app.get("/", (c) => c.json({ status: "ok" }));
-app.get("/health", (c) => c.json({ status: "ok" }));
+app.get("/styles.css", (c) => c.text(readFileSync(join(STATIC_DIR, "styles.css"), "utf-8"), 200, { "Content-Type": "text/css" }));
+app.get("/theme.js",   (c) => c.text(readFileSync(join(STATIC_DIR, "theme.js"),   "utf-8"), 200, { "Content-Type": "application/javascript" }));
+app.get("/dashboard",  (c) => c.html(readFileSync(join(STATIC_DIR, "dashboard.html"), "utf-8")));
+app.get("/",           (c) => c.json({ status: "ok" }));
+app.get("/health",     (c) => c.json({ status: "ok" }));
 
 if (WEBHOOK_URL) {
   app.post(`/webhook/${WEBHOOK_SECRET}`, webhookCallback(bot, "hono"));
 }
 
 import {
-  getDashboardStats, getRecentStamps, getAllUsersWithProgress,
-  getAllGames, getStagesByGame, stampStage, isGameComplete, getUserProgress,
-  addBalance, getUserBalance,
+  getDashboardStats, getAllUsersWithBalance, getAllOrders,
+  getOrderLevels, stampLevel, getOrder, addBalance, getUserBalance,
 } from "./db/client";
-import { notifyStageComplete } from "./utils/notify";
 
-app.get("/api/stats",                async (c) => { if (!auth(c)) return c.json({ error: "Unauthorized" }, 401); return c.json(await getDashboardStats()); });
-app.get("/api/users",                async (c) => { if (!auth(c)) return c.json({ error: "Unauthorized" }, 401); return c.json(await getAllUsersWithProgress()); });
-app.get("/api/stamps",               async (c) => { if (!auth(c)) return c.json({ error: "Unauthorized" }, 401); return c.json(await getRecentStamps(50)); });
-app.get("/api/games",                async (c) => { if (!auth(c)) return c.json({ error: "Unauthorized" }, 401); return c.json(await getAllGames()); });
-app.get("/api/games/:id/stages",     async (c) => { if (!auth(c)) return c.json({ error: "Unauthorized" }, 401); return c.json(await getStagesByGame(Number(c.req.param("id")))); });
-app.get("/api/users/:tgId/progress", async (c) => { if (!auth(c)) return c.json({ error: "Unauthorized" }, 401); return c.json(await getUserProgress(Number(c.req.param("tgId")))); });
-app.get("/api/users/:tgId/balance",  async (c) => { if (!auth(c)) return c.json({ error: "Unauthorized" }, 401); return c.json({ balance: await getUserBalance(Number(c.req.param("tgId"))) }); });
+app.get("/api/stats",  async (c) => { if (!auth(c)) return c.json({ error: "Unauthorized" }, 401); return c.json(await getDashboardStats()); });
+app.get("/api/users",  async (c) => { if (!auth(c)) return c.json({ error: "Unauthorized" }, 401); return c.json(await getAllUsersWithBalance()); });
+app.get("/api/orders", async (c) => { if (!auth(c)) return c.json({ error: "Unauthorized" }, 401); return c.json(await getAllOrders()); });
+app.get("/api/orders/:id/levels", async (c) => {
+  if (!auth(c)) return c.json({ error: "Unauthorized" }, 401);
+  return c.json(await getOrderLevels(Number(c.req.param("id"))));
+});
+app.get("/api/users/:tgId/balance", async (c) => {
+  if (!auth(c)) return c.json({ error: "Unauthorized" }, 401);
+  return c.json({ balance: await getUserBalance(Number(c.req.param("tgId"))) });
+});
 
+// ختم ليفل
+app.post("/api/stamp-level", async (c) => {
+  if (!auth(c)) return c.json({ error: "Unauthorized" }, 401);
+  const { orderId, level } = await c.req.json();
+  if (!orderId || !level) return c.json({ error: "Missing fields" }, 400);
+  const ok = await stampLevel(orderId, level);
+  if (!ok) return c.json({ error: "Already stamped or not found" }, 409);
+  const order = await getOrder(orderId);
+  if (order) {
+    try {
+      const allLevels = String(order.levels).split(",").map(Number);
+      const isLast = order.status === "completed";
+      if (isLast) {
+        await bot.api.sendMessage(Number(order.user_tg_id),
+          `🎉 *مبروك! اكتمل طلبك بالكامل!*\n\n` +
+          `${order.emoji} *${order.game_name}*\n` +
+          `✅ تم ختم جميع الليفلات: ${allLevels.join(", ")}\n\n` +
+          `أنت بطل حقيقي! 🏆`,
+          { parse_mode: "Markdown" }
+        );
+      } else {
+        await bot.api.sendMessage(Number(order.user_tg_id),
+          `✅ *تم ختم ليفل جديد!*\n\n` +
+          `${order.emoji} *${order.game_name}*\n` +
+          `🎯 الليفل *${level}* تم ختمه بنجاح!\n\n` +
+          `استمر! 💪`,
+          { parse_mode: "Markdown" }
+        );
+      }
+    } catch (e) { console.error("Notify error:", e); }
+  }
+  return c.json({ success: true, orderComplete: order?.status === "completed" });
+});
+
+// إضافة رصيد
 app.post("/api/balance", async (c) => {
   if (!auth(c)) return c.json({ error: "Unauthorized" }, 401);
   const { tgId, amount, note } = await c.req.json();
   if (!tgId || amount === undefined) return c.json({ error: "Missing fields" }, 400);
-  if (typeof amount !== "number") return c.json({ error: "amount must be a number" }, 400);
   const newBalance = await addBalance(tgId, amount, note);
   try {
     const sign = amount >= 0 ? "+" : "";
-    await bot.api.sendMessage(
-      tgId,
-      `💵 *تم تحديث رصيدك!*\n\n` +
-      `${sign}${amount.toFixed(2)} دولار\n` +
-      `💰 رصيدك الحالي: *${newBalance.toFixed(2)} دولار*` +
-      (note ? `\n📝 ${note}` : ""),
+    await bot.api.sendMessage(tgId,
+      `💵 *تم تحديث رصيدك!*\n\n${sign}${amount.toFixed(2)} دولار\n💰 رصيدك الحالي: *${newBalance.toFixed(2)} دولار*` + (note ? `\n📝 ${note}` : ""),
       { parse_mode: "Markdown" }
     );
   } catch (e) { console.error("Notify balance error:", e); }
   return c.json({ success: true, newBalance });
 });
 
-app.post("/api/stamp", async (c) => {
-  if (!auth(c)) return c.json({ error: "Unauthorized" }, 401);
-  const { tgId, gameId, stageId } = await c.req.json();
-  if (!tgId || !gameId || !stageId) return c.json({ error: "Missing fields" }, 400);
-  const ok = await stampStage(tgId, gameId, stageId);
-  if (!ok) return c.json({ error: "Already stamped or DB error" }, 409);
-  const [games, stages] = await Promise.all([getAllGames(), getStagesByGame(gameId)]);
-  const game = games.find(g => Number(g.id) === gameId);
-  const stage = stages.find(s => Number(s.id) === stageId);
-  if (game && stage) {
-    const complete = await isGameComplete(tgId, gameId, Number(game.total_stages));
-    try {
-      await notifyStageComplete(bot, tgId, String(game.emoji), String(game.name), Number(stage.number), String(stage.name), Number(game.total_stages), gameId);
-    } catch (e) { console.error("Notify error:", e); }
-    return c.json({ success: true, gameComplete: complete });
-  }
-  return c.json({ success: true });
-});
-
 async function main() {
-  // ابدأ السيرفر أولاً — عشان Railway healthcheck يشتغل فوراً
   Bun.serve({ port: PORT, fetch: app.fetch });
   console.log(`🚀 Server on port ${PORT}`);
-
-  // ثم DB والبوت بالخلفية
   await initDB();
   await seedGames();
-
   if (WEBHOOK_URL) {
     await bot.api.setWebhook(`${WEBHOOK_URL}/webhook/${WEBHOOK_SECRET}`);
     console.log(`✅ Webhook set`);
