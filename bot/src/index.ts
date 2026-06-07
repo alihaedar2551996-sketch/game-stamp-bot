@@ -52,6 +52,7 @@ app.get("/dashboard", (c) => {
   return c.html(html);
 });
 
+// Health — يرد فوراً بدون انتظار DB
 app.get("/", (c) => c.json({ status: "ok" }));
 app.get("/health", (c) => c.json({ status: "ok" }));
 
@@ -74,14 +75,12 @@ app.get("/api/games/:id/stages",     async (c) => { if (!auth(c)) return c.json(
 app.get("/api/users/:tgId/progress", async (c) => { if (!auth(c)) return c.json({ error: "Unauthorized" }, 401); return c.json(await getUserProgress(Number(c.req.param("tgId")))); });
 app.get("/api/users/:tgId/balance",  async (c) => { if (!auth(c)) return c.json({ error: "Unauthorized" }, 401); return c.json({ balance: await getUserBalance(Number(c.req.param("tgId"))) }); });
 
-// إضافة رصيد
 app.post("/api/balance", async (c) => {
   if (!auth(c)) return c.json({ error: "Unauthorized" }, 401);
   const { tgId, amount, note } = await c.req.json();
   if (!tgId || amount === undefined) return c.json({ error: "Missing fields" }, 400);
   if (typeof amount !== "number") return c.json({ error: "amount must be a number" }, 400);
   const newBalance = await addBalance(tgId, amount, note);
-  // إشعار المستخدم
   try {
     const sign = amount >= 0 ? "+" : "";
     await bot.api.sendMessage(
@@ -116,16 +115,20 @@ app.post("/api/stamp", async (c) => {
 });
 
 async function main() {
+  // ابدأ السيرفر أولاً — عشان Railway healthcheck يشتغل فوراً
+  Bun.serve({ port: PORT, fetch: app.fetch });
+  console.log(`🚀 Server on port ${PORT}`);
+
+  // ثم DB والبوت بالخلفية
   await initDB();
   await seedGames();
+
   if (WEBHOOK_URL) {
     await bot.api.setWebhook(`${WEBHOOK_URL}/webhook/${WEBHOOK_SECRET}`);
     console.log(`✅ Webhook set`);
   } else {
     bot.start({ onStart: () => console.log("🤖 Bot polling started") });
   }
-  Bun.serve({ port: PORT, fetch: app.fetch });
-  console.log(`🚀 Server on port ${PORT}`);
 }
 
 main().catch(console.error);
