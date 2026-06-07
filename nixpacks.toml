@@ -1,5 +1,8 @@
+[phases.setup]
+nixPkgs = ["bun"]
+
 [phases.install]
-cmds = ["npm install -g bun && cd bot && bun install"]
+cmds = ["cd bot && bun install"]
 
 [start]
 cmd = "cd bot && bun src/index.ts"
