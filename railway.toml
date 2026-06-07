@@ -1,9 +1,0 @@
-[build]
-builder = "nixpacks"
-buildCommand = "cd bot && bun install"
-
-[deploy]
-startCommand = "cd bot && bun src/index.ts"
-healthcheckPath = "/health"
-healthcheckTimeout = 30
-restartPolicyType = "on_failure"
