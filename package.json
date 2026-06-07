@@ -1,0 +1,10 @@
+{
+  "name": "game-stamp-bot",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": ["bot", "dashboard"],
+  "scripts": {
+    "bot": "cd bot && bun run dev",
+    "dashboard": "cd dashboard && bun run dev"
+  }
+}

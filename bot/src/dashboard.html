@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html class="light" lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>🎮 لوحة تختيم المراحل</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/styles.css" />
+  <style>
+    body { font-family: var(--font-sans); background: var(--surface-base); color: var(--text-primary); min-height: 100vh; }
+    .layout { display: flex; min-height: 100vh; }
+    .sidebar { width: 240px; background: var(--surface-primary); box-shadow: var(--shadow-lifted-card); display: flex; flex-direction: column; padding: var(--space-4); gap: var(--space-2); position: fixed; top: 0; right: 0; bottom: 0; z-index: 10; }
+    .sidebar-logo { font-size: 20px; font-weight: 700; padding: var(--space-3) var(--space-2); margin-bottom: var(--space-2); display: flex; align-items: center; gap: var(--space-2); }
+    .nav-item { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-2) var(--space-3); border-radius: var(--radius-md); cursor: pointer; font-size: 14px; font-weight: 500; color: var(--text-secondary); transition: all var(--transition-fast); border: none; background: transparent; width: 100%; text-align: right; }
+    .nav-item:hover { background: var(--surface-hover); color: var(--text-primary); }
+    .nav-item.active { background: var(--surface-active); color: var(--text-primary); }
+    .sidebar-bottom { margin-top: auto; display: flex; flex-direction: column; gap: var(--space-2); }
+    .main { margin-right: 240px; flex: 1; padding: var(--space-6); }
+    .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-6); }
+    .page-title { font-size: 22px; font-weight: 700; }
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: var(--space-4); margin-bottom: var(--space-6); }
+    .stat-card { background: var(--surface-primary); border-radius: var(--radius-xl); box-shadow: var(--shadow-lifted-card); padding: var(--space-5); }
+    .stat-icon { font-size: 24px; margin-bottom: var(--space-2); }
+    .stat-label { font-size: 12px; color: var(--text-muted); font-weight: 500; margin-bottom: var(--space-2); }
+    .stat-value { font-size: 32px; font-weight: 700; }
+    .table-card { background: var(--surface-primary); border-radius: var(--radius-xl); box-shadow: var(--shadow-lifted-card); overflow: hidden; }
+    .table-header { padding: var(--space-4) var(--space-5); display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border-subtle); }
+    .table-title { font-size: 15px; font-weight: 600; }
+    table { width: 100%; border-collapse: collapse; }
+    th { padding: var(--space-3) var(--space-4); text-align: right; font-size: 12px; font-weight: 600; color: var(--text-muted); background: var(--surface-secondary); }
+    td { padding: var(--space-3) var(--space-4); font-size: 13px; color: var(--text-secondary); border-bottom: 1px solid var(--border-subtle); }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: var(--surface-hover); }
+    .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 100; align-items: center; justify-content: center; }
+    .modal-overlay.open { display: flex; }
+    .modal { background: var(--surface-primary); border-radius: var(--radius-xl); box-shadow: 0 20px 60px rgba(0,0,0,0.2); padding: var(--space-6); width: 480px; max-width: 95vw; }
+    .modal-title { font-size: 18px; font-weight: 700; margin-bottom: var(--space-4); }
+    .form-group { margin-bottom: var(--space-4); }
+    .form-label { font-size: 13px; font-weight: 500; color: var(--text-secondary); margin-bottom: var(--space-2); display: block; }
+    select, .input { width: 100%; padding: var(--space-2) var(--space-3); border-radius: var(--radius-md); border: 1px solid var(--border-default); background: var(--surface-primary); color: var(--text-primary); font-size: 14px; font-family: var(--font-sans); outline: none; transition: border-color var(--transition-fast); }
+    select:focus, .input:focus { border-color: var(--border-focus); }
+    .modal-actions { display: flex; gap: var(--space-3); justify-content: flex-end; margin-top: var(--space-5); }
+    .progress-bar { height: 6px; background: var(--surface-active); border-radius: 999px; overflow: hidden; width: 120px; }
+    .progress-fill { height: 100%; background: var(--blue-800); border-radius: 999px; }
+    .toast { position: fixed; bottom: var(--space-6); left: 50%; transform: translateX(-50%) translateY(100px); background: var(--text-primary); color: var(--text-inverse); padding: var(--space-3) var(--space-5); border-radius: var(--radius-xl); font-size: 14px; font-weight: 500; z-index: 200; transition: transform var(--transition-medium); white-space: nowrap; }
+    .toast.show { transform: translateX(-50%) translateY(0); }
+    .login-screen { min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+    .login-card { background: var(--surface-primary); border-radius: var(--radius-xl); box-shadow: var(--shadow-lifted-card); padding: var(--space-8); width: 360px; text-align: center; }
+    .login-logo { font-size: 48px; margin-bottom: var(--space-4); }
+    .login-title { font-size: 20px; font-weight: 700; margin-bottom: var(--space-2); }
+    .login-sub { font-size: 14px; color: var(--text-muted); margin-bottom: var(--space-6); }
+    .page { display: none; }
+    .page.active { display: block; }
+    .search-bar { display: flex; gap: var(--space-3); margin-bottom: var(--space-4); }
+    .search-bar .input { flex: 1; }
+    .games-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: var(--space-3); margin-top: var(--space-4); }
+    .game-card { background: var(--surface-secondary); border-radius: var(--radius-lg); padding: var(--space-4); }
+    .game-card-title { font-size: 13px; font-weight: 600; margin-bottom: var(--space-2); }
+    .loading { text-align: center; padding: var(--space-8); color: var(--text-muted); }
+  </style>
+</head>
+<body>
+
+<!-- Login -->
+<div id="loginScreen" class="login-screen">
+  <div class="login-card">
+    <div class="login-logo">🎮</div>
+    <div class="login-title">لوحة تختيم المراحل</div>
+    <div class="login-sub">أدخل مفتاح الأدمن للدخول</div>
+    <div class="form-group">
+      <input type="password" class="input" id="apiKeyInput" placeholder="Admin Key" style="text-align:center" />
+    </div>
+    <button class="btn btn-primary" style="width:100%" onclick="doLogin()">دخول →</button>
+    <div id="loginError" style="color:var(--red-600);font-size:13px;margin-top:var(--space-3);display:none">❌ مفتاح خاطئ</div>
+  </div>
+</div>
+
+<!-- Dashboard -->
+<div id="dashboard" style="display:none">
+  <div class="layout">
+    <nav class="sidebar">
+      <div class="sidebar-logo">🎮 <span>تختيم المراحل</span></div>
+      <button class="nav-item active" onclick="showPage('overview',this)">📊 <span>نظرة عامة</span></button>
+      <button class="nav-item" onclick="showPage('users',this)">👥 <span>المستخدمون</span></button>
+      <button class="nav-item" onclick="showPage('stamps',this)">🏅 <span>سجل التختيمات</span></button>
+      <button class="nav-item" onclick="showPage('stamp',this)">✅ <span>تختيم مرحلة</span></button>
+      <div class="sidebar-bottom">
+        <button class="theme-toggle nav-item" style="width:100%;justify-content:flex-start;gap:var(--space-3)">
+          <svg class="icon-sun" width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M17.657 17.657l-.707-.707M6.343 6.343l-.707-.707M12 8a4 4 0 100 8 4 4 0 000-8z"/></svg>
+          <svg class="icon-moon" width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
+          <span>الوضع الليلي</span>
+        </button>
+        <button class="nav-item" onclick="logout()" style="color:var(--red-600)">🚪 <span>خروج</span></button>
+      </div>
+    </nav>
+
+    <main class="main">
+      <!-- Overview -->
+      <div id="page-overview" class="page active">
+        <div class="page-header">
+          <div class="page-title">📊 نظرة عامة</div>
+          <button class="btn btn-secondary btn-sm" onclick="loadOverview()">🔄 تحديث</button>
+        </div>
+        <div class="stats-grid" id="statsGrid"><div class="loading">جاري التحميل...</div></div>
+        <div class="table-card">
+          <div class="table-header"><div class="table-title">🏅 آخر التختيمات</div></div>
+          <div id="recentStamps"><div class="loading">جاري التحميل...</div></div>
+        </div>
+      </div>
+
+      <!-- Users -->
+      <div id="page-users" class="page">
+        <div class="page-header"><div class="page-title">👥 المستخدمون</div></div>
+        <div class="search-bar"><input class="input" id="userSearch" placeholder="🔍 بحث..." oninput="filterUsers()" /></div>
+        <div class="table-card"><div id="usersTable"><div class="loading">جاري التحميل...</div></div></div>
+      </div>
+
+      <!-- Stamps Log -->
+      <div id="page-stamps" class="page">
+        <div class="page-header"><div class="page-title">🏅 سجل التختيمات</div></div>
+        <div class="table-card"><div id="stampsLog"><div class="loading">جاري التحميل...</div></div></div>
+      </div>
+
+      <!-- Stamp -->
+      <div id="page-stamp" class="page">
+        <div class="page-header"><div class="page-title">✅ تختيم مرحلة</div></div>
+        <div class="table-card" style="padding:var(--space-6);max-width:520px">
+          <div class="form-group">
+            <label class="form-label">👤 المستخدم</label>
+            <select id="stampUser" onchange="loadGameStages()"><option value="">-- اختر مستخدم --</option></select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">🎮 اللعبة</label>
+            <select id="stampGame" onchange="loadStages()"><option value="">-- اختر لعبة --</option></select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">🏅 المرحلة</label>
+            <select id="stampStage"><option value="">-- اختر مرحلة --</option></select>
+          </div>
+          <button class="btn btn-primary" style="width:100%" onclick="doStamp()">✅ تختيم وإرسال إشعار</button>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div class="modal-overlay" id="modal" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <div class="modal-title" id="modalTitle"></div>
+    <div id="modalBody"></div>
+    <div class="modal-actions" id="modalActions"></div>
+  </div>
+</div>
+
+<script src="/theme.js"></script>
+<script>
+const API_BASE = window.location.origin;
+let API_KEY = "";
+let allUsers = [];
+
+// ── Auth using ?key= query param (bypasses proxy header stripping) ──
+async function apiFetch(path, options = {}) {
+  try {
+    const sep = path.includes("?") ? "&" : "?";
+    const url = API_BASE + path + sep + "key=" + encodeURIComponent(API_KEY);
+    const res = await fetch(url, {
+      ...options,
+      headers: { "Content-Type": "application/json", ...(options.headers||{}) },
+    });
+    return res.json();
+  } catch(e) { return { error: e.message }; }
+}
+
+async function doLogin() {
+  const key = document.getElementById("apiKeyInput").value.trim();
+  if (!key) return;
+  API_KEY = key;
+  const data = await apiFetch("/api/stats");
+  if (data.error) {
+    document.getElementById("loginError").style.display = "block";
+    API_KEY = "";
+  } else {
+    localStorage.setItem("admin_key", key);
+    document.getElementById("loginScreen").style.display = "none";
+    document.getElementById("dashboard").style.display = "block";
+    initDashboard();
+  }
+}
+
+function logout() { localStorage.removeItem("admin_key"); location.reload(); }
+
+document.getElementById("apiKeyInput").addEventListener("keydown", e => { if(e.key==="Enter") doLogin(); });
+
+const saved = localStorage.getItem("admin_key");
+if (saved) {
+  API_KEY = saved;
+  apiFetch("/api/stats").then(d => {
+    if (!d.error) {
+      document.getElementById("loginScreen").style.display = "none";
+      document.getElementById("dashboard").style.display = "block";
+      initDashboard();
+    } else { localStorage.removeItem("admin_key"); API_KEY = ""; }
+  });
+}
+
+function showPage(name, btn) {
+  document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
+  document.querySelectorAll(".nav-item").forEach(b => b.classList.remove("active"));
+  document.getElementById("page-"+name).classList.add("active");
+  btn.classList.add("active");
+  if (name==="overview") loadOverview();
+  if (name==="users") loadUsers();
+  if (name==="stamps") loadStampsLog();
+  if (name==="stamp") loadStampForm();
+}
+
+function initDashboard() { loadOverview(); }
+
+async function loadOverview() {
+  const [stats, stamps] = await Promise.all([apiFetch("/api/stats"), apiFetch("/api/stamps")]);
+  document.getElementById("statsGrid").innerHTML = `
+    <div class="stat-card"><div class="stat-icon">👥</div><div class="stat-label">المستخدمون</div><div class="stat-value">${stats.totalUsers??0}</div></div>
+    <div class="stat-card"><div class="stat-icon">🏅</div><div class="stat-label">التختيمات</div><div class="stat-value">${stats.totalStamps??0}</div></div>
+    <div class="stat-card"><div class="stat-icon">🎮</div><div class="stat-label">الألعاب</div><div class="stat-value">${stats.totalGames??0}</div></div>`;
+  if (!stamps.length) { document.getElementById("recentStamps").innerHTML=`<div class="loading">لا توجد تختيمات بعد</div>`; return; }
+  document.getElementById("recentStamps").innerHTML = `<table><thead><tr><th>المستخدم</th><th>اللعبة</th><th>المرحلة</th><th>الوقت</th></tr></thead><tbody>
+    ${stamps.slice(0,15).map(s=>`<tr><td><strong>${s.first_name}</strong>${s.username?` <span style="color:var(--text-muted)">@${s.username}</span>`:""}</td><td>${s.emoji} ${s.game_name}</td><td><span class="badge badge-success">${s.stage_name}</span></td><td style="color:var(--text-muted)">${fmt(s.stamped_at)}</td></tr>`).join("")}
+  </tbody></table>`;
+}
+
+async function loadUsers() {
+  allUsers = await apiFetch("/api/users");
+  renderUsers(allUsers);
+}
+function renderUsers(users) {
+  if (!users.length) { document.getElementById("usersTable").innerHTML=`<div class="loading">لا يوجد مستخدمون</div>`; return; }
+  document.getElementById("usersTable").innerHTML = `<table><thead><tr><th>الاسم</th><th>يوزرنيم</th><th>Telegram ID</th><th>التختيمات</th><th></th></tr></thead><tbody>
+    ${users.map(u=>`<tr><td><strong>${u.first_name}</strong></td><td style="color:var(--text-muted)">${u.username?`@${u.username}`:"—"}</td><td><code style="font-size:12px;background:var(--surface-secondary);padding:2px 6px;border-radius:4px">${u.tg_id}</code></td><td><span class="badge">${u.total_stamps} تختيم</span></td><td><button class="btn btn-ghost btn-sm" onclick="viewUser(${u.tg_id},'${u.first_name}')">تقدمه</button></td></tr>`).join("")}
+  </tbody></table>`;
+}
+function filterUsers() {
+  const q = document.getElementById("userSearch").value.toLowerCase();
+  renderUsers(allUsers.filter(u => u.first_name.toLowerCase().includes(q)||(u.username&&u.username.toLowerCase().includes(q))||String(u.tg_id).includes(q)));
+}
+async function viewUser(tgId, name) {
+  const progress = await apiFetch(`/api/users/${tgId}/progress`);
+  document.getElementById("modalTitle").textContent = `🎮 تقدم ${name}`;
+  document.getElementById("modalBody").innerHTML = `<div class="games-grid">${progress.map(g=>{
+    const done=Number(g.completed_stages),total=Number(g.total_stages),pct=total>0?Math.round(done/total*100):0;
+    return `<div class="game-card"><div class="game-card-title">${g.emoji} ${g.game_name}</div><div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div><span style="font-size:12px;color:var(--text-muted)">${done}/${total}</span></div>${done===total?'<span class="badge badge-success">✅ مكتملة</span>':`<span class="badge">${pct}%</span>`}</div>`;
+  }).join("")}</div>`;
+  document.getElementById("modalActions").innerHTML = `<button class="btn btn-secondary" onclick="closeModal()">إغلاق</button>`;
+  openModal();
+}
+
+async function loadStampsLog() {
+  const stamps = await apiFetch("/api/stamps");
+  if (!stamps.length) { document.getElementById("stampsLog").innerHTML=`<div class="loading">لا توجد تختيمات</div>`; return; }
+  document.getElementById("stampsLog").innerHTML = `<table><thead><tr><th>المستخدم</th><th>اللعبة</th><th>المرحلة</th><th>التاريخ</th></tr></thead><tbody>
+    ${stamps.map(s=>`<tr><td><strong>${s.first_name}</strong>${s.username?` @${s.username}`:""}</td><td>${s.emoji} ${s.game_name}</td><td><span class="badge badge-success">${s.stage_name}</span></td><td style="color:var(--text-muted)">${fmt(s.stamped_at)}</td></tr>`).join("")}
+  </tbody></table>`;
+}
+
+async function loadStampForm() {
+  const [users, games] = await Promise.all([apiFetch("/api/users"), apiFetch("/api/games")]);
+  document.getElementById("stampUser").innerHTML = `<option value="">-- اختر مستخدم --</option>`+users.map(u=>`<option value="${u.tg_id}">${u.first_name}${u.username?` (@${u.username})`:""}</option>`).join("");
+  document.getElementById("stampGame").innerHTML = `<option value="">-- اختر لعبة --</option>`+games.map(g=>`<option value="${g.id}">${g.emoji} ${g.name} (${g.total_stages} مراحل)</option>`).join("");
+}
+async function loadStages() {
+  const gameId = document.getElementById("stampGame").value;
+  if (!gameId) return;
+  const stages = await apiFetch(`/api/games/${gameId}/stages`);
+  document.getElementById("stampStage").innerHTML = `<option value="">-- اختر مرحلة --</option>`+stages.map(s=>`<option value="${s.id}">المرحلة ${s.number}: ${s.name}</option>`).join("");
+}
+function loadGameStages() {}
+
+async function doStamp() {
+  const tgId=Number(document.getElementById("stampUser").value);
+  const gameId=Number(document.getElementById("stampGame").value);
+  const stageId=Number(document.getElementById("stampStage").value);
+  if (!tgId||!gameId||!stageId) { showToast("⚠️ اختر المستخدم واللعبة والمرحلة"); return; }
+  const res = await apiFetch("/api/stamp", { method:"POST", body: JSON.stringify({tgId,gameId,stageId}) });
+  if (res.error) showToast(`❌ ${res.error==="Already stamped or DB error"?"مختومة مسبقاً!":res.error}`);
+  else { showToast(res.gameComplete?"🎉 اللعبة مكتملة!":"✅ تم التختيم وإرسال الإشعار!"); document.getElementById("stampStage").innerHTML=`<option value="">-- اختر مرحلة --</option>`; }
+}
+
+function openModal() { document.getElementById("modal").classList.add("open"); }
+function closeModal() { document.getElementById("modal").classList.remove("open"); }
+function showToast(msg) { const t=document.getElementById("toast"); t.textContent=msg; t.classList.add("show"); setTimeout(()=>t.classList.remove("show"),3000); }
+function fmt(s) { if(!s) return "—"; return new Date(s).toLocaleString("ar-SY",{dateStyle:"short",timeStyle:"short"}); }
+</script>
+</body>
+</html>
