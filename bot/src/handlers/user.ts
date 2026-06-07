@@ -15,7 +15,12 @@ export function registerUserHandlers(bot: Bot) {
       .url("🆘 الدعم", `https://t.me/${SUPPORT_USERNAME}`);
 
     await ctx.reply(
-      `🎮 *أهلاً ${user.first_name}!*\n\nمرحباً في بوت تختيم المراحل.\nالأدمن سيختم مراحلك في كل لعبة وستصلك إشعار فوري! 🔔`,
+      `💀 الـمُستوى الأخير: نِهاية اللعبة تبدأ من هُنا!\n` +
+      `أهلاً بك ${user.first_name} في AutoGamer.. المَقر السري لتجهيز الألعاب وسحق المراحل.\n\n` +
+      `مع AutoGamer نحن هنا لنختصر عليك الطريق:\n` +
+      `• أعلى كفاءة وسرعة.\n` +
+      `• 🏆 قفل ملفات المراحل.\n\n` +
+      `الهندسة والتعب علينا.. والسيطرة إلك! 👑`,
       { parse_mode: "Markdown", reply_markup: keyboard }
     );
   });
