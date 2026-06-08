@@ -58,6 +58,7 @@ import {
   getOrderLevels, stampLevel, getOrder, addBalance, getUserBalance,
   getAllTopupRequests, approveTopup, rejectTopup, initTopupTable,
   getReferrer, addReferralCommission, getReferralStats,
+  getNotebookUsers, getNotebookUserDetail,
 } from "./db/client";
 
 // ── Admin Notify ────────────────────────────────────────────────────────────
@@ -271,6 +272,18 @@ function log(level: "INFO" | "WARN" | "ERROR", scope: string, msg: string, data?
     level === "ERROR" ? console.error(line) : console.log(line);
   }
 }
+
+
+// ── Notebook Endpoints ───────────────────────────────────────────────────────
+app.get("/api/notebook", async (c) => {
+  if (!auth(c)) return c.json({ error: "Unauthorized" }, 401);
+  return c.json(await getNotebookUsers());
+});
+
+app.get("/api/notebook/:tgId", async (c) => {
+  if (!auth(c)) return c.json({ error: "Unauthorized" }, 401);
+  return c.json(await getNotebookUserDetail(Number(c.req.param("tgId"))));
+});
 
 // ── Healthcheck ─────────────────────────────────────────────────────────────
 app.get("/health", (c) => {

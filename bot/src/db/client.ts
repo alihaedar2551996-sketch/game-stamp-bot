@@ -442,3 +442,50 @@ export async function getRevenueStats() {
     chartOrders: chartOrders.rows,
   };
 }
+
+// ── Notebook (المفكرة) ───────────────────────────────────────────────────────
+
+// كل المستخدمين اللي عندهم طلب لعبة معلق أو شحن معلق
+export async function getNotebookUsers() {
+  const res = await db.execute(`
+    SELECT DISTINCT
+      u.tg_id, u.first_name, u.username,
+      (SELECT COUNT(*) FROM orders o2 WHERE o2.user_id = u.tg_id AND o2.status = 'pending') as pending_orders,
+      (SELECT COUNT(*) FROM topup_requests t2 WHERE t2.user_id = u.tg_id AND t2.status = 'pending') as pending_topups
+    FROM users u
+    WHERE
+      EXISTS (SELECT 1 FROM orders o WHERE o.user_id = u.tg_id AND o.status = 'pending')
+      OR
+      EXISTS (SELECT 1 FROM topup_requests t WHERE t.user_id = u.tg_id AND t.status = 'pending')
+    ORDER BY u.first_name ASC
+  `);
+  return res.rows;
+}
+
+// تفاصيل مستخدم واحد — طلبات معلقة + شحن معلق
+export async function getNotebookUserDetail(tgId: number) {
+  const [orders, topups] = await Promise.all([
+    db.execute({
+      sql: `
+        SELECT o.id, o.levels, o.created_at, g.name as game_name, g.emoji,
+               (SELECT COUNT(*) FROM order_levels ol WHERE ol.order_id = o.id AND ol.stamped = 0) as remaining,
+               (SELECT COUNT(*) FROM order_levels ol WHERE ol.order_id = o.id) as total
+        FROM orders o
+        JOIN games g ON g.id = o.game_id
+        WHERE o.user_id = ? AND o.status = 'pending'
+        ORDER BY o.created_at ASC
+      `,
+      args: [tgId],
+    }),
+    db.execute({
+      sql: `
+        SELECT id, method, amount, tx_id, photo_id, created_at
+        FROM topup_requests
+        WHERE user_id = ? AND status = 'pending'
+        ORDER BY created_at ASC
+      `,
+      args: [tgId],
+    }),
+  ]);
+  return { orders: orders.rows, topups: topups.rows };
+}

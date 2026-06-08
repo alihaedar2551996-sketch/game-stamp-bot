@@ -457,6 +457,55 @@
     .legend-dot.topup { background: var(--neon); }
     html.light .legend-dot.topup { background: var(--neon-dim); }
     .legend-dot.orders { background: var(--blue-800); }
+
+    /* ── Notebook ── */
+    .notebook-list { display: flex; flex-direction: column; gap: 2px; padding: 0 var(--space-2); }
+    .notebook-user {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: var(--space-2) var(--space-3); border-radius: var(--radius-md);
+      cursor: pointer; font-size: 13px; font-weight: 500; color: var(--text-secondary);
+      transition: all var(--transition-fast); border: none; background: transparent; width: 100%; text-align: right;
+    }
+    .notebook-user:hover { background: var(--surface-hover); color: var(--text-primary); }
+    .notebook-user-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .notebook-badges { display: flex; gap: 4px; flex-shrink: 0; }
+    .nb-badge {
+      font-size: 10px; font-weight: 700; padding: 1px 6px;
+      border-radius: 999px; line-height: 1.6;
+    }
+    .nb-badge-order { background: rgba(0,212,255,0.15); color: var(--blue-800); }
+    .nb-badge-topup { background: rgba(251,191,36,0.15); color: #b45309; }
+    .notebook-empty { font-size: 12px; color: var(--text-muted); padding: var(--space-3) var(--space-4); text-align: center; }
+    .nb-panel-section { margin-bottom: var(--space-5); }
+    .nb-panel-section-title { font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: var(--space-3); }
+    .nb-order-card {
+      background: var(--surface-secondary); border-radius: var(--radius-lg);
+      border: 1px solid var(--border-subtle); padding: var(--space-3) var(--space-4);
+      margin-bottom: var(--space-2);
+    }
+    .nb-order-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-2); }
+    .nb-order-game { font-size: 13px; font-weight: 700; }
+    .nb-order-id { font-size: 11px; color: var(--text-muted); }
+    .nb-order-progress { font-size: 12px; color: var(--text-secondary); margin-bottom: var(--space-2); }
+    .nb-progress-bar { height: 4px; background: var(--surface-active); border-radius: 999px; overflow: hidden; }
+    .nb-progress-fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--neon), var(--blue-800)); transition: width 0.4s ease; }
+    html.light .nb-progress-fill { background: linear-gradient(90deg, var(--neon-dim), var(--blue-800)); }
+    .nb-topup-card {
+      background: var(--surface-secondary); border-radius: var(--radius-lg);
+      border: 1px solid rgba(251,191,36,0.2); padding: var(--space-3) var(--space-4);
+      margin-bottom: var(--space-2);
+    }
+    .nb-topup-row { display: flex; align-items: center; justify-content: space-between; font-size: 13px; }
+    .nb-topup-method { color: var(--text-secondary); font-size: 12px; margin-top: 2px; }
+    .nb-stamp-btn {
+      margin-top: var(--space-3); width: 100%;
+      background: rgba(0,255,136,0.08); border: 1px solid rgba(0,255,136,0.25);
+      color: var(--neon); border-radius: var(--radius-md);
+      padding: var(--space-2); font-size: 12px; font-weight: 700; cursor: pointer;
+      transition: all var(--transition-fast);
+    }
+    html.light .nb-stamp-btn { color: var(--neon-dim); border-color: rgba(0,204,106,0.3); background: rgba(0,204,106,0.06); }
+    .nb-stamp-btn:hover { background: rgba(0,255,136,0.15); }
   </style>
 </head>
 <body>
@@ -489,7 +538,19 @@
       </div>
     </div>
 
+    
     <div class="nav-section">
+      <div class="nav-label">المفكرة</div>
+      <button class="nav-item" onclick="showPage('notebook',this)" id="notebookNavBtn">
+        <span class="nav-icon">📝</span> المفكرة الكاملة
+        <span class="nav-badge" id="notebookBadge" style="display:none">0</span>
+      </button>
+      <div class="notebook-list" id="notebookList">
+        <div class="notebook-empty">جاري التحميل...</div>
+      </div>
+    </div>
+
+<div class="nav-section">
       <div class="nav-label">الرئيسية</div>
       <button class="nav-item active" onclick="showPage('overview',this)">
         <span class="nav-icon">📊</span> نظرة عامة
@@ -554,6 +615,18 @@
     </header>
 
     <div class="content">
+
+
+      <!-- Notebook Page -->
+      <div id="page-notebook" class="page">
+        <div class="table-card">
+          <div class="table-toolbar">
+            <div class="table-toolbar-title">📝 المفكرة الكاملة</div>
+            <button class="btn btn-secondary btn-sm" onclick="loadNotebook()">🔄 تحديث</button>
+          </div>
+          <div id="notebookPageContent"><div class="loading">جاري التحميل...</div></div>
+        </div>
+      </div>
 
       <!-- Overview -->
       <div id="page-overview" class="page active">
@@ -701,6 +774,20 @@
   </div><!-- /main -->
 </div><!-- /app -->
 
+
+<!-- Notebook User Panel -->
+<div class="panel-overlay" id="nbPanelOverlay" onclick="closeNbPanel()"></div>
+<div class="order-panel" id="nbPanel">
+  <div class="panel-header">
+    <div class="panel-title" id="nbPanelTitle">المهام المعلقة</div>
+    <button class="panel-close" onclick="closeNbPanel()">✕</button>
+  </div>
+  <div class="panel-body" id="nbPanelBody">
+    <div class="loading">جاري التحميل...</div>
+  </div>
+  <div class="panel-footer" id="nbPanelFooter"></div>
+</div>
+
 <!-- Modal -->
 <!-- Order Side Panel -->
 <div class="panel-overlay" id="panelOverlay" onclick="closePanel()"></div>
@@ -796,7 +883,7 @@ fetch(API_BASE+"/api/stats",{credentials:"include"}).then(async r=>{
 }).catch(()=>{});
 
 // ── Navigation ──
-const pageTitles = { overview:"نظرة عامة", orders:"الطلبات", topups:"طلبات الشحن", users:"المستخدمون", balance:"إضافة رصيد", broadcast:"رسالة جماعية", referrals:"الإحالات" };
+const pageTitles = { overview:"نظرة عامة", orders:"الطلبات", topups:"طلبات الشحن", users:"المستخدمون", balance:"إضافة رصيد", broadcast:"رسالة جماعية", referrals:"الإحالات", notebook:"المفكرة الكاملة" };
 function showPage(name, btn){
   closeSidebar();
   document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));
@@ -811,6 +898,7 @@ function showPage(name, btn){
   if(name==="balance") loadBalanceForm();
   if(name==="broadcast") loadBroadcast();
   if(name==="referrals") loadReferrals();
+  if(name==="notebook") { loadNotebook(); }
 }
 function refreshPage(){
   const active = document.querySelector(".page.active");
@@ -818,7 +906,7 @@ function refreshPage(){
   const name = active.id.replace("page-","");
   showPage(name, null);
 }
-function initDashboard(){ loadOverview(); loadRevenue(); updateBadges(); setInterval(updateBadges, 30000); }
+function initDashboard(){ loadOverview(); loadRevenue(); loadNotebook(); updateBadges(); setInterval(updateBadges, 30000); setInterval(loadNotebook, 60000); }
 
 // ── Badges ──
 async function updateBadges(){
@@ -1302,6 +1390,163 @@ function renderRevenueChart() {
   }).join('');
 
   document.getElementById('revenueChart').innerHTML = bars;
+}
+
+
+
+// ── Notebook ──────────────────────────────────────────────────────────────────
+let notebookUsers = [];
+
+async function loadNotebook() {
+  notebookUsers = await apiFetch('/api/notebook') || [];
+  renderNotebookSidebar();
+  renderNotebookPage();
+}
+
+function renderNotebookSidebar() {
+  const badge = document.getElementById('notebookBadge');
+  const list  = document.getElementById('notebookList');
+  const count = notebookUsers.length;
+
+  badge.textContent = count;
+  badge.style.display = count ? 'inline' : 'none';
+
+  if (!count) {
+    list.innerHTML = '<div class="notebook-empty">✅ كل شيء مكتمل</div>';
+    return;
+  }
+
+  list.innerHTML = notebookUsers.map(u => `
+    <button class="notebook-user" onclick="openNbPanel(${u.tg_id})">
+      <span class="notebook-user-name">${u.first_name}${u.username ? ` @${u.username}` : ''}</span>
+      <span class="notebook-badges">
+        ${Number(u.pending_orders) > 0 ? `<span class="nb-badge nb-badge-order">🎮 ${u.pending_orders}</span>` : ''}
+        ${Number(u.pending_topups) > 0 ? `<span class="nb-badge nb-badge-topup">💳 ${u.pending_topups}</span>` : ''}
+      </span>
+    </button>
+  `).join('');
+}
+
+function renderNotebookPage() {
+  const el = document.getElementById('notebookPageContent');
+  if (!notebookUsers.length) {
+    el.innerHTML = `<div class="empty"><div class="empty-icon">✅</div><div class="empty-text">كل الطلبات مكتملة — لا يوجد شيء معلق</div></div>`;
+    return;
+  }
+  el.innerHTML = `<table>
+    <thead><tr><th>المستخدم</th><th>طلبات معلقة</th><th>شحن معلق</th><th></th></tr></thead>
+    <tbody>
+    ${notebookUsers.map(u => `<tr>
+      <td><strong>${u.first_name}</strong>${u.username ? ` <span style="color:var(--text-muted)">@${u.username}</span>` : ''}</td>
+      <td>${Number(u.pending_orders) > 0 ? `<span class="status-pill pill-pending">🎮 ${u.pending_orders} طلب</span>` : '—'}</td>
+      <td>${Number(u.pending_topups) > 0 ? `<span class="status-pill pill-pending">💳 ${u.pending_topups} شحن</span>` : '—'}</td>
+      <td><button class="btn btn-ghost btn-sm" onclick="openNbPanel(${u.tg_id})">عرض التفاصيل ←</button></td>
+    </tr>`).join('')}
+    </tbody>
+  </table>`;
+}
+
+async function openNbPanel(tgId) {
+  document.getElementById('nbPanel').classList.add('open');
+  document.getElementById('nbPanelOverlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+
+  const user = notebookUsers.find(u => Number(u.tg_id) === Number(tgId));
+  document.getElementById('nbPanelTitle').textContent = user ? `📝 ${user.first_name}` : 'المهام المعلقة';
+  document.getElementById('nbPanelBody').innerHTML = '<div class="loading">⏳ جاري التحميل...</div>';
+  document.getElementById('nbPanelFooter').innerHTML = '';
+
+  const data = await apiFetch(`/api/notebook/${tgId}`);
+  if (!data) { document.getElementById('nbPanelBody').innerHTML = '<div class="empty"><div class="empty-icon">❌</div></div>'; return; }
+
+  let html = '';
+
+  // ── طلبات الألعاب ──
+  if (data.orders && data.orders.length) {
+    html += `<div class="nb-panel-section">
+      <div class="nb-panel-section-title">🎮 طلبات الألعاب المعلقة (${data.orders.length})</div>`;
+    data.orders.forEach(o => {
+      const done  = Number(o.total) - Number(o.remaining);
+      const total = Number(o.total);
+      const pct   = total ? Math.round(done / total * 100) : 0;
+      html += `
+        <div class="nb-order-card">
+          <div class="nb-order-header">
+            <div class="nb-order-game">${o.emoji} ${o.game_name}</div>
+            <div class="nb-order-id">#${o.id}</div>
+          </div>
+          <div class="nb-order-progress">${done}/${total} ليفل مكتمل (${pct}%)</div>
+          <div class="nb-progress-bar"><div class="nb-progress-fill" style="width:${pct}%"></div></div>
+          <button class="nb-stamp-btn" onclick="closeNbPanel(); openOrder(${o.id})">🎯 فتح للختم ←</button>
+        </div>`;
+    });
+    html += '</div>';
+  }
+
+  // ── طلبات الشحن ──
+  if (data.topups && data.topups.length) {
+    html += `<div class="nb-panel-section">
+      <div class="nb-panel-section-title">💳 طلبات الشحن المعلقة (${data.topups.length})</div>`;
+    data.topups.forEach(t => {
+      const method = t.method === 'syriatel' ? '📱 سيريتيل كاش' : '🔐 USDT';
+      html += `
+        <div class="nb-topup-card">
+          <div class="nb-topup-row">
+            <strong>$${t.amount}</strong>
+            <span class="status-pill pill-pending">⏳ معلق</span>
+          </div>
+          <div class="nb-topup-method">${method} — #${t.id}</div>
+          ${t.photo_id
+            ? `<a href="/api/photo/${t.photo_id}" target="_blank" class="nb-stamp-btn" style="display:block;text-align:center;text-decoration:none;margin-top:var(--space-2)">📸 عرض الإثبات</a>`
+            : t.tx_id
+              ? `<div style="font-size:11px;color:var(--text-muted);margin-top:var(--space-2)">TX: <code>${t.tx_id}</code></div>`
+              : ''
+          }
+          <div style="display:flex;gap:var(--space-2);margin-top:var(--space-3)">
+            <button class="btn btn-sm" style="flex:1;background:rgba(16,185,129,0.1);color:#065f46;border:none;font-weight:600"
+              onclick="approveTopupFromNb(${t.id},'${t.amount}',${tgId})">✅ قبول</button>
+            <button class="btn btn-sm" style="flex:1;background:rgba(239,68,68,0.1);color:#991b1b;border:none;font-weight:600"
+              onclick="rejectTopupFromNb(${t.id},${tgId})">❌ رفض</button>
+          </div>
+        </div>`;
+    });
+    html += '</div>';
+  }
+
+  if (!html) {
+    html = '<div class="empty"><div class="empty-icon">✅</div><div class="empty-text">لا يوجد شيء معلق</div></div>';
+  }
+
+  document.getElementById('nbPanelBody').innerHTML = html;
+  document.getElementById('nbPanelFooter').innerHTML = `<button class="btn btn-secondary" style="width:100%" onclick="closeNbPanel()">✕ إغلاق</button>`;
+}
+
+function closeNbPanel() {
+  document.getElementById('nbPanel').classList.remove('open');
+  document.getElementById('nbPanelOverlay').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+// قبول/رفض شحن من داخل المفكرة مع تحديث تلقائي
+async function approveTopupFromNb(id, suggested, tgId) {
+  const amount = prompt('المبلغ بالدولار للإضافة:', suggested || '');
+  if (!amount || isNaN(Number(amount))) return;
+  const res = await apiFetch(`/api/topups/${id}/approve`, { method: 'POST', body: JSON.stringify({ amount: Number(amount) }) });
+  if (res.error) { showToast(`❌ ${res.error}`); return; }
+  showToast(`✅ تم القبول وإضافة $${Number(amount).toFixed(2)}`);
+  await loadNotebook();
+  openNbPanel(tgId);
+  updateBadges();
+}
+
+async function rejectTopupFromNb(id, tgId) {
+  if (!confirm('رفض طلب الشحن؟')) return;
+  const res = await apiFetch(`/api/topups/${id}/reject`, { method: 'POST', body: JSON.stringify({}) });
+  if (res.error) { showToast(`❌ ${res.error}`); return; }
+  showToast('❌ تم الرفض');
+  await loadNotebook();
+  openNbPanel(tgId);
+  updateBadges();
 }
 
 
