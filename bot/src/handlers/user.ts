@@ -133,7 +133,7 @@ export function registerUserHandlers(bot: Bot) {
     await ctx.reply(
       `📱 *الشحن عبر سيريتيل كاش*\n\n` +
       `حوّل المبلغ إلى:\n\`${SYRIATEL_NUMBER}\`\n\n` +
-      `بعد التحويل أرسل *المبلغ الذي حوّلته* (مثال: 5):`,
+      `بعد التحويل أرسل *المبلغ بالليرة السورية* (مثال: 1400):`,
       { parse_mode: "Markdown" }
     );
   });
@@ -211,12 +211,22 @@ export function registerUserHandlers(bot: Bot) {
 
     // فلو الشحن — المبلغ
     if (session.step === "topup_amount") {
-      const amount = text.replace(/[^\d.]/g, "");
-      if (!amount || isNaN(Number(amount))) return ctx.reply("❌ أرسل رقم صحيح مثال: 10");
-      session.topupAmount = amount;
+      const raw = text.replace(/[^\d.]/g, "");
+      if (!raw || isNaN(Number(raw))) return ctx.reply("❌ أرسل رقم صحيح");
+      const SYP_RATE = 140; // 140 ليرة = 1 دولار
+      let amountUSD: number;
+      let amountDisplay: string;
+      if (session.topupMethod === "syriatel") {
+        amountUSD = Number(raw) / SYP_RATE;
+        amountDisplay = `${Number(raw).toLocaleString()} ل.س = *${amountUSD.toFixed(2)}$*`;
+      } else {
+        amountUSD = Number(raw);
+        amountDisplay = `*${amountUSD.toFixed(2)}$*`;
+      }
+      session.topupAmount = amountUSD.toFixed(2);
       session.step = "topup_proof";
       return ctx.reply(
-        `💰 المبلغ: *${amount}$*\n\n📸 الآن أرسل *رقم العملية* أو *صورة التحويل*:`,
+        `💰 المبلغ: ${amountDisplay}\n\n📸 الآن أرسل *رقم العملية* أو *صورة التحويل*:`,
         { parse_mode: "Markdown" }
       );
     }
