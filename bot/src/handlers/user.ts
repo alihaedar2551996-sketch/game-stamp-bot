@@ -200,8 +200,21 @@ export function registerUserHandlers(bot: Bot) {
       );
     }
 
-    // إنشاء الطلب
-    const orderId = await createOrder(user.id, session.gameId!, session.idfa!, session.idfv!, session.iosVersion!, session.appsflyerId!, levels);
+    // إنشاء الطلب — إذا فشل نرجع الرصيد
+    let orderId: number;
+    try {
+      orderId = await createOrder(user.id, session.gameId!, session.idfa!, session.idfv!, session.iosVersion!, session.appsflyerId!, levels);
+    } catch (e) {
+      // رجّع الرصيد
+      await deductBalance(user.id, -ORDER_PRICE, "استرداد — فشل إنشاء الطلب");
+      delete sessions[user.id];
+      console.error("createOrder failed:", e);
+      return ctx.reply(
+        `❌ حدث خطأ أثناء إنشاء الطلب، تم استرداد رصيدك.\nحاول مجدداً أو تواصل مع الدعم.`,
+        { reply_markup: new InlineKeyboard().text("🏠 القائمة", "back_main") }
+      );
+    }
+
     delete sessions[user.id];
 
     await ctx.reply(

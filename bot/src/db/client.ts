@@ -117,12 +117,13 @@ export async function createOrder(
     args: [userId, gameId, idfa, idfv, iosVersion, appsflyerId, levels.join(",")],
   });
   const orderId = Number(res.lastInsertRowid);
-  for (const level of levels) {
-    await db.execute({
+  // أضف كل الليفلات بالتوازي
+  await Promise.all(levels.map(level =>
+    db.execute({
       sql: `INSERT INTO order_levels (order_id, level) VALUES (?, ?)`,
       args: [orderId, level],
-    });
-  }
+    })
+  ));
   return orderId;
 }
 
