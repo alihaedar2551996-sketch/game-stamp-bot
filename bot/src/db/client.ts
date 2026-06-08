@@ -61,11 +61,13 @@ export async function initDB() {
 }
 
 // ── Users ──────────────────────────────────────────────────
-export async function upsertUser(tgId: number, username: string | undefined, firstName: string) {
-  await db.execute({
+export async function upsertUser(tgId: number, username: string | undefined, firstName: string): Promise<boolean> {
+  const res = await db.execute({
     sql: `INSERT OR IGNORE INTO users (tg_id, username, first_name) VALUES (?, ?, ?)`,
     args: [tgId, username ?? null, firstName],
   });
+  // يرجع true لو كان مستخدم جديد
+  return Number(res.rowsAffected) > 0;
 }
 
 export async function getUserBalance(tgId: number): Promise<number> {

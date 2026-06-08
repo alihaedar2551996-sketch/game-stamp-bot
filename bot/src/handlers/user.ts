@@ -1,5 +1,5 @@
 import { Bot, InlineKeyboard } from "grammy";
-import { upsertUser, getAllGames, getUserBalance, deductBalance, createOrder, getOrdersByUser, getOrderLevels, getOrder, createTopupRequest, setReferral, getUserReferralInfo } from "../db/client";
+import { upsertUser, getAllGames, getUserBalance, deductBalance, addBalance, createOrder, getOrdersByUser, getOrderLevels, getOrder, createTopupRequest, setReferral, getUserReferralInfo } from "../db/client";
 import { bot } from "../index";
 
 const ADMIN_CHAT_ID = Number(process.env.ADMIN_CHAT_ID ?? "6762566920");
@@ -63,7 +63,7 @@ export function registerUserHandlers(bot: Bot) {
   // /start
   bot.command("start", async (ctx) => {
     const user = ctx.from!;
-    await upsertUser(user.id, user.username, user.first_name);
+    const isNew = await upsertUser(user.id, user.username, user.first_name);
     delete sessions[user.id];
 
     // معالجة رابط الإحالة /start?ref=123456
@@ -71,6 +71,17 @@ export function registerUserHandlers(bot: Bot) {
     if (payload && /^\d+$/.test(payload)) {
       const referrerId = Number(payload);
       await setReferral(referrerId, user.id);
+    }
+
+    // هدية ترحيبية للمستخدمين الجدد
+    if (isNew) {
+      await addBalance(user.id, 1, "🎁 هدية ترحيبية للمستخدمين الجدد");
+      await ctx.reply(
+        `🎁 <b>مبروك! حصلت على هدية ترحيبية!</b>\n\n` +
+        `💵 تم إضافة <b>1.00$</b> لرصيدك كهدية ترحيبية\n\n` +
+        `ابدأ الآن واطلب أول لعبة! 🎮`,
+        { parse_mode: "HTML" }
+      );
     }
 
     await sendMainMenu(ctx, user.first_name);
