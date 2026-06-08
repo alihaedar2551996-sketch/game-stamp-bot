@@ -632,8 +632,8 @@ async function sendMainMenu(ctx: any, firstName: string) {
     .row()
     .url("🆘 الدعم", `https://t.me/${SUPPORT_USERNAME}`);
   await ctx.reply(
-    `🎮 <b>AutoGamer Bot</b>\n` +
-    `البوت المتخصص في ختم جميع مراحل ومستويات ألعاب منصة AppsFlyer حصرياً!\n\n` +
+    `🎮 <b>AutoGamer Bot</b>\n\n` +
+    `البوت المتخصص في ختم جميع مراحل ومستويات ألعاب منصة Appsflyer ios حصرياً!\n\n` +
     `• ختم المراحل عن بعد: بدون أي تعب أو تضييع وقت.\n\n` +
     `• محاكاة بشرية 100%: أمان تام وتخطي ذكي للأنظمة.\n\n` +
     `• احتساب فوري: تنتهي المهمة وتحسب مكافأتك فوراً!\n\n` +
