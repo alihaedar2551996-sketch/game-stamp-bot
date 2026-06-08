@@ -230,6 +230,21 @@ export function registerUserHandlers(bot: Bot) {
         { parse_mode: "Markdown" }
       );
     }
+
+    // فلو الشحن — إثبات نصي (رقم العملية)
+    if (session.step === "topup_proof") {
+      const txId = ctx.message.text.trim();
+      const reqId = await createTopupRequest(user.id, session.topupMethod!, session.topupAmount!, txId, null);
+      delete sessions[user.id];
+      return ctx.reply(
+        `✅ *تم استلام طلب الشحن بنجاح!*\n\n` +
+        `💰 المبلغ: *${session.topupAmount}$*\n` +
+        `🔢 رقم العملية: \`${txId}\`\n` +
+        `📋 رقم الطلب: *#${reqId}*\n\n` +
+        `⏳ سيتم مراجعة طلبك وإضافة الرصيد في أقرب وقت ممكن 🙏`,
+        { parse_mode: "Markdown", reply_markup: new InlineKeyboard().text("🏠 القائمة", "back_main") }
+      );
+    }
   });
 
   // ── استقبال الصور (إثبات الشحن) ─────────────────────────
