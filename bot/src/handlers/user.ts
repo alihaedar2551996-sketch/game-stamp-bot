@@ -241,6 +241,134 @@ export function registerUserHandlers(bot: Bot) {
     );
   });
 
+  // ── التعليمات ──────────────────────────────────────────────
+  bot.callbackQuery("help_menu", async (ctx) => {
+    ctx.answerCallbackQuery().catch(() => {});
+    await ctx.reply(
+      `📖 <b>مركز المساعدة</b>\n\nاختر الموضوع اللي تبي تعرف عنه:`,
+      {
+        parse_mode: "HTML",
+        reply_markup: new InlineKeyboard()
+          .text("🕹️ كيف تطلب لعبة", "help_order").row()
+          .text("📱 شو هو IDFA/IDFV/AppsFlyer", "help_ids").row()
+          .text("💳 كيف تشحن الرصيد", "help_topup").row()
+          .text("💰 الأسعار", "help_prices").row()
+          .text("🎁 نظام الإحالة", "help_referral").row()
+          .text("🏠 القائمة", "back_main"),
+      }
+    );
+  });
+
+  bot.callbackQuery("help_order", async (ctx) => {
+    ctx.answerCallbackQuery().catch(() => {});
+    await ctx.reply(
+      `🕹️ <b>كيف تطلب لعبة؟</b>\n\n` +
+      `<b>الخطوة 1</b> — اضغط <b>اطلب لعبة</b> من القائمة\n` +
+      `<b>الخطوة 2</b> — اختر اللعبة اللي بدك تختمها\n` +
+      `<b>الخطوة 3</b> — أرسل معلوماتك:\n` +
+      `   • IDFA\n` +
+      `   • IDFV\n` +
+      `   • إصدار iOS (مثال: 18.2)\n` +
+      `   • AppsFlyer ID\n` +
+      `<b>الخطوة 4</b> — أرسل أرقام الليفلات مفصولة بفواصل\n` +
+      `   مثال: <code>1, 5, 10, 15, 20</code>\n` +
+      `<b>الخطوة 5</b> — راجع الملخص واضغط ✅ تأكيد\n\n` +
+      `⏳ بعد التأكيد ستصلك إشعارات مع كل ليفل يُختم`,
+      {
+        parse_mode: "HTML",
+        reply_markup: new InlineKeyboard()
+          .text("🔙 التعليمات", "help_menu").text("🏠 القائمة", "back_main"),
+      }
+    );
+  });
+
+  bot.callbackQuery("help_ids", async (ctx) => {
+    ctx.answerCallbackQuery().catch(() => {});
+    await ctx.reply(
+      `📱 <b>شو هو IDFA / IDFV / AppsFlyer ID؟</b>\n\n` +
+      `هي معرّفات خاصة بجهازك وحسابك في اللعبة — بدونها ما نقدر نختم ليفلاتك.\n\n` +
+      `<b>🔹 IDFA</b> (Identifier for Advertisers)\n` +
+      `معرّف الإعلانات الخاص بجهازك\n` +
+      `📍 الإعدادات ← الخصوصية والأمان ← الإعلانات من Apple\n\n` +
+      `<b>🔹 IDFV</b> (Identifier for Vendor)\n` +
+      `معرّف المطور — موجود داخل اللعبة في قسم الإعدادات أو الدعم\n\n` +
+      `<b>🔹 AppsFlyer ID</b>\n` +
+      `معرّف التتبع — موجود في إعدادات اللعبة تحت "معلومات الجهاز" أو "Device Info"\n\n` +
+      `💡 <i>إذا ما لقيتها تواصل مع الدعم وبنساعدك</i>`,
+      {
+        parse_mode: "HTML",
+        reply_markup: new InlineKeyboard()
+          .text("🔙 التعليمات", "help_menu").text("🏠 القائمة", "back_main"),
+      }
+    );
+  });
+
+  bot.callbackQuery("help_topup", async (ctx) => {
+    ctx.answerCallbackQuery().catch(() => {});
+    await ctx.reply(
+      `💳 <b>كيف تشحن رصيدك؟</b>\n\n` +
+      `<b>طريقة 1 — سيريتيل كاش 📱</b>\n` +
+      `1. حوّل المبلغ إلى: <code>35181383</code>\n` +
+      `2. اضغط شحن رصيد ← سيريتيل كاش\n` +
+      `3. أرسل المبلغ بالليرة السورية (مثال: <code>1400</code>)\n` +
+      `4. أرسل رقم العملية أو صورة التحويل\n\n` +
+      `<b>طريقة 2 — USDT (BEP20) 🔐</b>\n` +
+      `1. أرسل USDT إلى:\n<code>0x77cf846eccb684f524b6a8d357e4dee6ded83a78</code>\n` +
+      `⚠️ <b>BEP20 فقط!</b> شبكات أخرى = خسارة المبلغ\n` +
+      `2. اضغط شحن رصيد ← USDT\n` +
+      `3. أرسل المبلغ ثم TX Hash\n\n` +
+      `⏳ يتم مراجعة الطلب وإضافة الرصيد في أقرب وقت`,
+      {
+        parse_mode: "HTML",
+        reply_markup: new InlineKeyboard()
+          .text("🔙 التعليمات", "help_menu").text("🏠 القائمة", "back_main"),
+      }
+    );
+  });
+
+  bot.callbackQuery("help_prices", async (ctx) => {
+    ctx.answerCallbackQuery().catch(() => {});
+    await ctx.reply(
+      `💰 <b>الأسعار</b>\n\n` +
+      `<b>سعر الليفل الواحد: ${PRICE_PER_LEVEL}$</b>\n\n` +
+      `📊 <b>أمثلة:</b>\n` +
+      `• 5 ليفلات = <b>${(5 * PRICE_PER_LEVEL).toFixed(2)}$</b>\n` +
+      `• 10 ليفلات = <b>${(10 * PRICE_PER_LEVEL).toFixed(2)}$</b>\n` +
+      `• 20 ليفلات = <b>${(20 * PRICE_PER_LEVEL).toFixed(2)}$</b>\n` +
+      `• 50 ليفلات = <b>${(50 * PRICE_PER_LEVEL).toFixed(2)}$</b>\n\n` +
+      `💡 السعر يُخصم من رصيدك مباشرة عند تأكيد الطلب`,
+      {
+        parse_mode: "HTML",
+        reply_markup: new InlineKeyboard()
+          .text("🔙 التعليمات", "help_menu").text("🏠 القائمة", "back_main"),
+      }
+    );
+  });
+
+  bot.callbackQuery("help_referral", async (ctx) => {
+    ctx.answerCallbackQuery().catch(() => {});
+    const botUsername = (await ctx.api.getMe()).username;
+    const user = ctx.from!;
+    const inviteLink = `https://t.me/${botUsername}?start=${user.id}`;
+    await ctx.reply(
+      `🎁 <b>نظام الإحالة</b>\n\n` +
+      `ادعُ أصدقاءك واربح <b>10%</b> من كل شحن يشحنونه!\n\n` +
+      `<b>كيف يشتغل؟</b>\n` +
+      `1. اضغط <b>دعوة صديق</b> وانسخ رابطك الخاص\n` +
+      `2. أرسل الرابط لصديقك\n` +
+      `3. لما يسجل عبر رابطك ويشحن رصيد\n` +
+      `4. تحصل أنت على <b>10%</b> من المبلغ تلقائياً\n\n` +
+      `🔗 رابطك: <code>${inviteLink}</code>\n\n` +
+      `💡 <i>العمولة تُضاف لرصيدك فور قبول الأدمن للشحن</i>`,
+      {
+        parse_mode: "HTML",
+        reply_markup: new InlineKeyboard()
+          .text("🎁 دعوة صديق", "invite_friend").row()
+          .text("🔙 التعليمات", "help_menu").text("🏠 القائمة", "back_main"),
+      }
+    );
+  });
+
   // /profile
   // /games — ألعابي
   bot.command("games", async (ctx) => {
@@ -450,6 +578,8 @@ async function sendMainMenu(ctx: any, firstName: string) {
     .text("💵 رصيدي", "show_balance").text("💳 شحن رصيد", "show_topup")
     .row()
     .text("🎁 دعوة صديق", "invite_friend")
+    .row()
+    .text("📖 تعليمات", "help_menu")
     .row()
     .url("🆘 الدعم", `https://t.me/${SUPPORT_USERNAME}`);
   await ctx.reply(
