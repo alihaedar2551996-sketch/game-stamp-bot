@@ -508,7 +508,6 @@
 <script src="/theme.js"></script>
 <script>
 const API_BASE = window.location.origin;
-let API_KEY = "";
 let allOrders = [], allUsers = [];
 
 
@@ -532,10 +531,12 @@ setInterval(updateClock, 1000); updateClock();
 // ── API ──
 async function apiFetch(path, options={}) {
   try {
-    const sep = path.includes("?")?"&":"?";
-    const res = await fetch(API_BASE+path+sep+"key="+encodeURIComponent(API_KEY), {
-      ...options, headers:{"Content-Type":"application/json",...(options.headers||{})}
+    const res = await fetch(API_BASE+path, {
+      ...options,
+      credentials: "include",
+      headers: {"Content-Type":"application/json",...(options.headers||{})}
     });
+    if(res.status===401){ logout(); return {error:"Unauthorized"}; }
     return res.json();
   } catch(e){ return {error:e.message}; }
 }
@@ -544,21 +545,32 @@ async function apiFetch(path, options={}) {
 async function doLogin(){
   const key = document.getElementById("apiKeyInput").value.trim();
   if(!key) return;
-  API_KEY = key;
-  const data = await apiFetch("/api/stats");
-  if(data.error){
-    document.getElementById("loginError").style.display="block"; API_KEY="";
-  } else {
-    localStorage.setItem("admin_key", key);
+  try {
+    const res = await fetch(API_BASE+"/api/login", {
+      method:"POST", credentials:"include",
+      headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({key})
+    });
+    if(!res.ok){ document.getElementById("loginError").style.display="block"; return; }
+    document.getElementById("loginScreen").style.display="none";
+    document.getElementById("dashboard").style.display="flex";
+    initDashboard();
+  } catch(e){
+    document.getElementById("loginError").style.display="block";
+  }
+}
+function logout(){
+  fetch(API_BASE+"/api/logout",{method:"POST",credentials:"include"}).finally(()=>location.reload());
+}
+document.getElementById("apiKeyInput").addEventListener("keydown", e=>{ if(e.key==="Enter") doLogin(); });
+// فحص إذا في session نشطة عند تحميل الصفحة
+fetch(API_BASE+"/api/stats",{credentials:"include"}).then(async r=>{
+  if(r.ok){
     document.getElementById("loginScreen").style.display="none";
     document.getElementById("dashboard").style.display="flex";
     initDashboard();
   }
-}
-function logout(){ localStorage.removeItem("admin_key"); location.reload(); }
-document.getElementById("apiKeyInput").addEventListener("keydown", e=>{ if(e.key==="Enter") doLogin(); });
-const saved = localStorage.getItem("admin_key");
-if(saved){ API_KEY=saved; apiFetch("/api/stats").then(d=>{ if(!d.error){ document.getElementById("loginScreen").style.display="none"; document.getElementById("dashboard").style.display="flex"; initDashboard(); } else { localStorage.removeItem("admin_key"); API_KEY=""; } }); }
+}).catch(()=>{});
 
 // ── Navigation ──
 const pageTitles = { overview:"نظرة عامة", orders:"الطلبات", topups:"طلبات الشحن", users:"المستخدمون", balance:"إضافة رصيد", broadcast:"رسالة جماعية", referrals:"الإحالات" };
@@ -703,7 +715,7 @@ async function loadTopups(){
       <td><strong>${t.first_name}</strong>${t.username?` <span style="color:var(--text-muted)">@${t.username}</span>`:""}</td>
       <td>${t.method==="syriatel"?"📱 سيريتيل":"🔐 USDT"}</td>
       <td><strong>$${t.amount}</strong></td>
-      <td>${t.photo_id?`<a href="/api/photo/${t.photo_id}?key=${API_KEY}" target="_blank" class="btn btn-ghost btn-sm">📸 صورة</a>`:t.tx_id?`<code style="font-size:11px;background:var(--surface-secondary);padding:2px 6px;border-radius:4px">${t.tx_id}</code>`:"—"}</td>
+      <td>${t.photo_id?`<a href="/api/photo/${t.photo_id}" target="_blank" class="btn btn-ghost btn-sm">📸 صورة</a>`:t.tx_id?`<code style="font-size:11px;background:var(--surface-secondary);padding:2px 6px;border-radius:4px">${t.tx_id}</code>`:"—"}</td>
       <td><span class="status-pill ${t.status==="approved"?"pill-approved":t.status==="rejected"?"pill-rejected":"pill-pending"}">${t.status==="approved"?"✅ مقبول":t.status==="rejected"?"❌ مرفوض":"⏳ معلق"}</span></td>
       <td style="color:var(--text-muted);font-size:12px">${fmt(t.created_at)}</td>
       <td style="display:flex;gap:4px;align-items:center">${t.status==="pending"?`

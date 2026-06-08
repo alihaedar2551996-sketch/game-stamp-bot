@@ -32,8 +32,13 @@ app.options("*", (c) => c.text("", 204));
 function auth(c: any): boolean {
   const fromHeader = c.req.header("Authorization")?.replace("Bearer ", "");
   const fromXHeader = c.req.header("x-api-key");
-  const fromQuery = c.req.query("key");
-  return fromHeader === API_KEY || fromXHeader === API_KEY || fromQuery === API_KEY;
+  const fromCookie = getCookie(c.req.raw.headers.get("cookie") ?? "", "admin_session");
+  return fromHeader === API_KEY || fromXHeader === API_KEY || fromCookie === API_KEY;
+}
+
+function getCookie(cookieHeader: string, name: string): string | null {
+  const match = cookieHeader.match(new RegExp(`(?:^|;\\s*)${name}=([^;]*)`));
+  return match ? decodeURIComponent(match[1]) : null;
 }
 
 const STATIC_DIR = join(import.meta.dir, ".");
@@ -52,6 +57,30 @@ import {
   getAllTopupRequests, approveTopup, rejectTopup, initTopupTable,
   getReferrer, addReferralCommission, getReferralStats,
 } from "./db/client";
+
+// ── Login / Logout ──────────────────────────────────────────────────────────
+app.post("/api/login", async (c) => {
+  const { key } = await c.req.json();
+  if (!key || key !== API_KEY) return c.json({ error: "Unauthorized" }, 401);
+  const secure = (process.env.WEBHOOK_URL ?? "").startsWith("https") ? "; Secure" : "";
+  c.res = new Response(JSON.stringify({ success: true }), {
+    headers: {
+      "Content-Type": "application/json",
+      "Set-Cookie": `admin_session=${encodeURIComponent(API_KEY)}; HttpOnly; SameSite=Strict; Path=/${secure}; Max-Age=86400`,
+    },
+  });
+  return c.res;
+});
+
+app.post("/api/logout", (c) => {
+  c.res = new Response(JSON.stringify({ success: true }), {
+    headers: {
+      "Content-Type": "application/json",
+      "Set-Cookie": "admin_session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0",
+    },
+  });
+  return c.res;
+});
 
 app.get("/api/stats",  async (c) => { if (!auth(c)) return c.json({ error: "Unauthorized" }, 401); return c.json(await getDashboardStats()); });
 app.get("/api/users",  async (c) => { if (!auth(c)) return c.json({ error: "Unauthorized" }, 401); return c.json(await getAllUsersWithBalance()); });
