@@ -727,7 +727,10 @@ function renderUsers(users){
       <td><span class="status-pill pill-pending">${u.total_orders} طلب</span></td>
       <td><span class="balance-chip">💵 $${Number(u.balance||0).toFixed(2)}</span></td>
       <td style="color:var(--text-muted);font-size:12px">${fmt(u.joined_at)}</td>
-      <td><button class="btn btn-ghost btn-sm" style="color:var(--green-700)" onclick="quickBalance(${u.tg_id},'${u.first_name}',${u.balance||0})">+ رصيد</button></td>
+      <td style="display:flex;gap:4px;align-items:center">
+        <button class="btn btn-ghost btn-sm" style="color:var(--green-700)" onclick="quickBalance(${u.tg_id},'${u.first_name}',${u.balance||0})">+ رصيد</button>
+        <button class="btn btn-ghost btn-sm" style="color:var(--red-600)" onclick="quickDeduct(${u.tg_id},'${u.first_name}',${u.balance||0})">− سحب</button>
+      </td>
     </tr>`).join("")}
   </tbody></table>`;
 }
@@ -749,6 +752,45 @@ async function submitQuickBalance(tgId){
   const res=await apiFetch("/api/balance",{method:"POST",body:JSON.stringify({tgId,amount,note:note||undefined})});
   if(res.error) showToast(`❌ ${res.error}`);
   else { showToast(`✅ الرصيد الجديد: $${res.newBalance.toFixed(2)}`); closeModal(); loadUsers(); }
+}
+
+// ── Quick Deduct ──
+function quickDeduct(tgId, name, bal){
+  document.getElementById("modalTitle").innerHTML=`🔻 سحب رصيد — ${name}`;
+  document.getElementById("modalBody").innerHTML=`
+    <p style="color:var(--text-muted);margin-bottom:var(--space-4)">الرصيد الحالي: <strong>$${Number(bal).toFixed(2)}</strong></p>
+    <div class="form-group">
+      <label class="form-label">المبلغ المراد سحبه ($)</label>
+      <input type="number" class="form-input" id="deductAmount" placeholder="0.00" step="0.01" min="0.01"/>
+      <div class="quick-amounts">
+        <button class="qa-btn" style="color:var(--red-600)" onclick="document.getElementById('deductAmount').value=1">$1</button>
+        <button class="qa-btn" style="color:var(--red-600)" onclick="document.getElementById('deductAmount').value=5">$5</button>
+        <button class="qa-btn" style="color:var(--red-600)" onclick="document.getElementById('deductAmount').value=10">$10</button>
+        <button class="qa-btn" style="color:var(--red-600)" onclick="document.getElementById('deductAmount').value=20">$20</button>
+        <button class="qa-btn" style="color:var(--red-600)" onclick="document.getElementById('deductAmount').value=50">$50</button>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">سبب السحب (اختياري)</label>
+      <input type="text" class="form-input" id="deductNote" placeholder="مثال: استرداد طلب ملغي"/>
+    </div>`;
+  document.getElementById("modalFooter").innerHTML=`
+    <button class="btn btn-secondary" onclick="closeModal()">إلغاء</button>
+    <button class="btn btn-primary" style="background:var(--red-600);border-color:var(--red-600)" onclick="submitQuickDeduct(${tgId},'${name}',${bal})">🔻 سحب الرصيد</button>`;
+  openModal();
+}
+async function submitQuickDeduct(tgId, name, currentBal){
+  const amount = parseFloat(document.getElementById("deductAmount").value);
+  const note   = document.getElementById("deductNote").value.trim();
+  if(isNaN(amount) || amount <= 0){ showToast("⚠️ أدخل مبلغاً صحيحاً"); return; }
+  if(amount > Number(currentBal)){ showToast(`❌ الرصيد غير كافٍ — الرصيد الحالي: $${Number(currentBal).toFixed(2)}`); return; }
+  if(!confirm(`سحب $${amount.toFixed(2)} من رصيد ${name}؟`)) return;
+  const res = await apiFetch("/api/balance", {
+    method: "POST",
+    body: JSON.stringify({ tgId, amount: -amount, note: note || `سحب رصيد $${amount.toFixed(2)}` })
+  });
+  if(res.error) showToast(`❌ ${res.error}`);
+  else { showToast(`✅ تم السحب — الرصيد الجديد: $${res.newBalance.toFixed(2)}`); closeModal(); loadUsers(); }
 }
 
 // ── Balance Page ──
