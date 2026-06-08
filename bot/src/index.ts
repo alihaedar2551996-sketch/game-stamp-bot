@@ -41,7 +41,6 @@ app.get("/styles.css", (c) => c.text(readFileSync(join(STATIC_DIR, "styles.css")
 app.get("/theme.js",   (c) => c.text(readFileSync(join(STATIC_DIR, "theme.js"),   "utf-8"), 200, { "Content-Type": "application/javascript" }));
 app.get("/dashboard",  (c) => c.html(readFileSync(join(STATIC_DIR, "dashboard.html"), "utf-8")));
 app.get("/",           (c) => c.json({ status: "ok" }));
-app.get("/health",     (c) => c.json({ status: "ok" }));
 
 if (WEBHOOK_URL) {
   app.post(`/webhook/${WEBHOOK_SECRET}`, webhookCallback(bot, "hono"));
@@ -150,18 +149,34 @@ app.get("/api/photo/:fileId", async (c) => {
   } catch(e) { return c.json({ error: "File not found" }, 404); }
 });
 
+let ready = false;
+
+// healthcheck يرد فوراً حتى لو الـ init لسا ما خلص
+app.get("/health", (c) => c.json({ status: "ok", ready }));
+
 async function main() {
+  // ابدأ السيرفر أول شي — Railway يشوفه فوراً
   Bun.serve({ port: PORT, fetch: app.fetch });
   console.log(`🚀 Server on port ${PORT}`);
-  await initDB();
-  await initTopupTable();
-  await seedGames();
-  if (WEBHOOK_URL) {
-    await bot.api.setWebhook(`${WEBHOOK_URL}/webhook/${WEBHOOK_SECRET}`);
-    console.log(`✅ Webhook set`);
-  } else {
-    bot.start({ onStart: () => console.log("🤖 Bot polling started") });
-  }
+
+  // الـ init في الخلفية — ما يبلوك الـ healthcheck
+  (async () => {
+    try {
+      await initDB();
+      await initTopupTable();
+      await seedGames();
+      if (WEBHOOK_URL) {
+        await bot.api.setWebhook(`${WEBHOOK_URL}/webhook/${WEBHOOK_SECRET}`);
+        console.log(`✅ Webhook set`);
+      } else {
+        bot.start({ onStart: () => console.log("🤖 Bot polling started") });
+      }
+      ready = true;
+      console.log("✅ Bot ready");
+    } catch (e) {
+      console.error("❌ Init failed:", e);
+    }
+  })();
 }
 
 main().catch(console.error);
