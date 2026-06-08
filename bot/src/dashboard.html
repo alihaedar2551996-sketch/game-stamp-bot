@@ -224,6 +224,145 @@
     /* ── Loading ── */
     .loading { text-align: center; padding: var(--space-8); color: var(--text-muted); font-size: 14px; }
 
+    /* ── Order Side Panel ── */
+    .panel-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.6); z-index: 150;
+      backdrop-filter: blur(3px);
+    }
+    .panel-overlay.open { display: block; }
+
+    .order-panel {
+      position: fixed; top: 0; left: 0; bottom: 0;
+      width: 520px; max-width: 95vw;
+      background: var(--surface-primary);
+      border-right: 1px solid var(--border-default);
+      box-shadow: 4px 0 32px rgba(0,0,0,0.5);
+      z-index: 151; display: flex; flex-direction: column;
+      transform: translateX(-100%);
+      transition: transform 0.3s cubic-bezier(.4,0,.2,1);
+      overflow: hidden;
+    }
+    html:not(.light) .order-panel {
+      background: linear-gradient(160deg, #0d1117 0%, #0a1520 100%);
+      border-right-color: var(--border-strong);
+    }
+    .order-panel.open { transform: translateX(0); }
+
+    .panel-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: var(--space-5) var(--space-6);
+      border-bottom: 1px solid var(--border-subtle);
+      flex-shrink: 0;
+    }
+    html:not(.light) .panel-header {
+      background: linear-gradient(90deg, rgba(0,255,136,0.05) 0%, transparent 100%);
+    }
+    .panel-title {
+      font-size: 18px; font-weight: 700;
+      font-family: var(--font-gaming, var(--font-sans));
+      letter-spacing: 0.03em;
+    }
+    html:not(.light) .panel-title { color: var(--neon, #00ff88); }
+
+    .panel-close {
+      width: 32px; height: 32px; border-radius: var(--radius-md);
+      background: var(--surface-secondary); border: 1px solid var(--border-default);
+      cursor: pointer; color: var(--text-muted); font-size: 16px;
+      display: flex; align-items: center; justify-content: center;
+      transition: all var(--transition-fast); flex-shrink: 0;
+    }
+    .panel-close:hover {
+      background: var(--surface-hover); color: var(--text-primary);
+      border-color: var(--border-strong);
+    }
+    html:not(.light) .panel-close:hover { color: var(--neon, #00ff88); border-color: var(--neon, #00ff88); }
+
+    .panel-body { flex: 1; overflow-y: auto; padding: var(--space-5) var(--space-6); }
+    .panel-footer {
+      padding: var(--space-4) var(--space-6);
+      border-top: 1px solid var(--border-subtle);
+      flex-shrink: 0;
+    }
+
+    .panel-status {
+      display: inline-flex; align-items: center; gap: var(--space-2);
+      padding: var(--space-2) var(--space-4); border-radius: 999px;
+      font-size: 13px; font-weight: 700; margin-bottom: var(--space-5);
+    }
+    .panel-status.pending { background: rgba(245,158,11,0.12); color: #f59e0b; border: 1px solid rgba(245,158,11,0.25); }
+    .panel-status.completed {
+      background: rgba(0,255,136,0.1); border: 1px solid rgba(0,255,136,0.25);
+    }
+    html:not(.light) .panel-status.completed { color: var(--neon, #00ff88); }
+    html.light .panel-status.completed { color: #16a34a; }
+
+    .panel-progress {
+      margin-bottom: var(--space-5);
+    }
+    .panel-progress-bar {
+      height: 6px; background: var(--surface-secondary);
+      border-radius: 999px; overflow: hidden; margin-top: var(--space-2);
+    }
+    .panel-progress-fill {
+      height: 100%; border-radius: 999px;
+      background: linear-gradient(90deg, var(--neon, #00ff88), #00d4ff);
+      transition: width 0.6s ease;
+    }
+    html.light .panel-progress-fill { background: linear-gradient(90deg, #00cc6a, #0284c7); }
+
+    .panel-info-grid {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: var(--space-3); margin-bottom: var(--space-5);
+    }
+    .panel-info-item {
+      background: var(--surface-secondary);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg); padding: var(--space-3);
+    }
+    html:not(.light) .panel-info-item:hover { border-color: var(--border-default); }
+    .panel-info-key {
+      font-size: 10px; font-weight: 700; color: var(--text-muted);
+      text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px;
+    }
+    .panel-info-val {
+      font-size: 12px; font-weight: 500; word-break: break-all;
+      color: var(--text-primary);
+    }
+    html:not(.light) .panel-info-val code {
+      color: var(--neon, #00ff88); font-size: 11px;
+    }
+
+    .panel-levels-title {
+      font-size: 13px; font-weight: 700;
+      margin-bottom: var(--space-3); color: var(--text-secondary);
+    }
+    .panel-levels-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+      gap: var(--space-2);
+    }
+    .panel-level-btn {
+      padding: var(--space-2) 0; border-radius: var(--radius-md);
+      border: 1px solid var(--border-default);
+      background: var(--surface-secondary);
+      color: var(--text-secondary); cursor: pointer;
+      font-size: 13px; font-weight: 700; text-align: center;
+      transition: all var(--transition-fast);
+    }
+    .panel-level-btn:hover:not(.stamped) {
+      border-color: var(--neon, #00ff88);
+      color: var(--neon, #00ff88);
+      background: rgba(0,255,136,0.06);
+      box-shadow: 0 0 8px rgba(0,255,136,0.15);
+    }
+    .panel-level-btn.stamped {
+      background: rgba(0,255,136,0.08);
+      border-color: rgba(0,255,136,0.3);
+      color: var(--neon, #00ff88);
+      cursor: default;
+    }
+    html.light .panel-level-btn.stamped { color: #16a34a; background: rgba(0,204,106,0.08); border-color: rgba(0,204,106,0.3); }
+
     /* ── Mobile Responsive ── */
     .sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 49; backdrop-filter: blur(2px); }
     .sidebar-overlay.open { display: block; }
@@ -492,6 +631,19 @@
 </div><!-- /app -->
 
 <!-- Modal -->
+<!-- Order Side Panel -->
+<div class="panel-overlay" id="panelOverlay" onclick="closePanel()"></div>
+<div class="order-panel" id="orderPanel">
+  <div class="panel-header">
+    <div class="panel-title" id="panelTitle">تفاصيل الطلب</div>
+    <button class="panel-close" onclick="closePanel()" title="إغلاق">✕</button>
+  </div>
+  <div class="panel-body" id="panelBody">
+    <div class="loading">جاري التحميل...</div>
+  </div>
+  <div class="panel-footer" id="panelFooter"></div>
+</div>
+
 <div class="modal-overlay" id="modal" onclick="if(event.target===this)closeModal()">
   <div class="modal">
     <div class="modal-header">
@@ -672,30 +824,88 @@ function renderOrders(orders){
 }
 function filterOrders(){ const q=document.getElementById("orderSearch").value.toLowerCase(); renderOrders(allOrders.filter(o=>o.first_name.toLowerCase().includes(q)||o.game_name.toLowerCase().includes(q)||(o.username&&o.username.toLowerCase().includes(q))||String(o.id).includes(q))); }
 
+function openPanel(){ document.getElementById("orderPanel").classList.add("open"); document.getElementById("panelOverlay").classList.add("open"); document.body.style.overflow="hidden"; }
+function closePanel(){ document.getElementById("orderPanel").classList.remove("open"); document.getElementById("panelOverlay").classList.remove("open"); document.body.style.overflow=""; }
+
 async function openOrder(orderId){
+  openPanel();
+  document.getElementById("panelTitle").textContent = "جاري التحميل...";
+  document.getElementById("panelBody").innerHTML = `<div class="loading">⏳ جاري تحميل الطلب...</div>`;
+  document.getElementById("panelFooter").innerHTML = "";
+
   const [order, levels] = await Promise.all([
     apiFetch("/api/orders").then(orders=>(orders||[]).find(o=>o.id===orderId)),
     apiFetch(`/api/orders/${orderId}/levels`)
   ]);
-  if(!order) return;
-  document.getElementById("modalTitle").innerHTML=`${order.emoji} ${order.game_name} — طلب #${orderId}`;
-  document.getElementById("modalBody").innerHTML=`
-    <div class="info-grid">
-      <div class="info-item"><div class="info-key">👤 المستخدم</div><div class="info-val">${order.first_name}${order.username?` (@${order.username})`:""}</div></div>
-      <div class="info-item"><div class="info-key">📱 IDFA</div><div class="info-val">${order.idfa||"—"}</div></div>
-      <div class="info-item"><div class="info-key">📱 IDFV</div><div class="info-val">${order.idfv||"—"}</div></div>
-      <div class="info-item"><div class="info-key">🍎 iOS</div><div class="info-val">${order.ios_version||"—"}</div></div>
-      <div class="info-item"><div class="info-key">📊 AppsFlyer ID</div><div class="info-val">${order.appsflyer_id||"—"}</div></div>
-      <div class="info-item"><div class="info-key">📅 التاريخ</div><div class="info-val">${fmt(order.created_at)}</div></div>
+  if(!order){ document.getElementById("panelBody").innerHTML=`<div class="empty"><div class="empty-icon">❌</div><div class="empty-text">الطلب غير موجود</div></div>`; return; }
+
+  const doneCount = levels.filter(l=>l.stamped).length;
+  const totalCount = levels.length;
+  const pct = totalCount ? Math.round(doneCount/totalCount*100) : 0;
+  const isComplete = order.status === "completed";
+
+  document.getElementById("panelTitle").innerHTML = `${order.emoji} ${order.game_name}`;
+
+  document.getElementById("panelBody").innerHTML = `
+    <div class="panel-status ${isComplete?'completed':'pending'}">
+      ${isComplete ? '✅ مكتمل' : '⏳ قيد التنفيذ'}
     </div>
-    <div style="font-size:13px;font-weight:600;margin-bottom:var(--space-3)">🎯 الليفلات — اضغط لختم:</div>
-    <div class="levels-wrap">
-      ${levels.map(l=>`<button class="level-btn ${l.stamped?"stamped":""}" onclick="${l.stamped?"":` stampLevel(${orderId},${l.level},this)`}" title="${l.stamped?`✅ تم: ${fmt(l.stamped_at)}`:"اضغط لختم"}">
-        ${l.stamped?"✅":""} ليفل ${l.level}
-      </button>`).join("")}
-    </div>`;
-  document.getElementById("modalFooter").innerHTML=`<button class="btn btn-secondary" onclick="closeModal()">إغلاق</button>`;
-  openModal();
+
+    <div class="panel-progress">
+      <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text-muted)">
+        <span>🎯 تقدم الليفلات</span>
+        <span style="font-weight:700;color:var(--text-primary)">${doneCount} / ${totalCount} (${pct}%)</span>
+      </div>
+      <div class="panel-progress-bar">
+        <div class="panel-progress-fill" style="width:${pct}%"></div>
+      </div>
+    </div>
+
+    <div class="panel-info-grid">
+      <div class="panel-info-item">
+        <div class="panel-info-key">👤 المستخدم</div>
+        <div class="panel-info-val">${order.first_name}${order.username?` (@${order.username})`:""}</div>
+      </div>
+      <div class="panel-info-item">
+        <div class="panel-info-key">🔢 رقم الطلب</div>
+        <div class="panel-info-val">#${order.id}</div>
+      </div>
+      <div class="panel-info-item">
+        <div class="panel-info-key">📱 IDFA</div>
+        <div class="panel-info-val"><code>${order.idfa||"—"}</code></div>
+      </div>
+      <div class="panel-info-item">
+        <div class="panel-info-key">📱 IDFV</div>
+        <div class="panel-info-val"><code>${order.idfv||"—"}</code></div>
+      </div>
+      <div class="panel-info-item">
+        <div class="panel-info-key">🍎 iOS</div>
+        <div class="panel-info-val">${order.ios_version||"—"}</div>
+      </div>
+      <div class="panel-info-item">
+        <div class="panel-info-key">📊 AppsFlyer ID</div>
+        <div class="panel-info-val"><code>${order.appsflyer_id||"—"}</code></div>
+      </div>
+      <div class="panel-info-item" style="grid-column:1/-1">
+        <div class="panel-info-key">📅 تاريخ الطلب</div>
+        <div class="panel-info-val">${fmt(order.created_at)}</div>
+      </div>
+    </div>
+
+    <div class="panel-levels-title">🎯 الليفلات — اضغط لختم:</div>
+    <div class="panel-levels-grid" id="panelLevels">
+      ${levels.map(l=>`
+        <button
+          class="panel-level-btn ${l.stamped?'stamped':''}"
+          id="pl-${orderId}-${l.level}"
+          onclick="${l.stamped?'':` stampLevelPanel(${orderId},${l.level})`}"
+          title="${l.stamped?`✅ تم: ${fmt(l.stamped_at)}`:'اضغط لختم'}"
+        >${l.stamped?'✅':''} ${l.level}</button>
+      `).join('')}
+    </div>
+  `;
+
+  document.getElementById("panelFooter").innerHTML=`<button class="btn btn-secondary" style="width:100%" onclick="closePanel()">✕ إغلاق</button>`;
 }
 
 async function stampLevel(orderId, level, btn){
@@ -703,6 +913,34 @@ async function stampLevel(orderId, level, btn){
   const res = await apiFetch("/api/stamp-level",{method:"POST",body:JSON.stringify({orderId,level})});
   if(res.error){ showToast(`❌ ${res.error}`); btn.disabled=false; btn.textContent=`ليفل ${level}`; }
   else { btn.className="level-btn stamped"; btn.textContent=`✅ ليفل ${level}`; showToast(res.orderComplete?"🎉 الطلب مكتمل!":"✅ تم الختم وإرسال الإشعار!"); updateBadges(); }
+}
+
+async function stampLevelPanel(orderId, level){
+  const btn = document.getElementById(`pl-${orderId}-${level}`);
+  if(!btn) return;
+  btn.disabled=true; btn.textContent="⏳";
+  const res = await apiFetch("/api/stamp-level",{method:"POST",body:JSON.stringify({orderId,level})});
+  if(res.error){
+    showToast(`❌ ${res.error}`); btn.disabled=false; btn.textContent=String(level);
+  } else {
+    btn.className="panel-level-btn stamped"; btn.textContent=`✅ ${level}`;
+    showToast(res.orderComplete?"🎉 الطلب مكتمل!":"✅ تم الختم وإرسال الإشعار!");
+    updateBadges();
+    // تحديث progress bar
+    const allBtns = document.querySelectorAll('#panelLevels .panel-level-btn');
+    const done = [...allBtns].filter(b=>b.classList.contains('stamped')).length;
+    const total = allBtns.length;
+    const pct = Math.round(done/total*100);
+    const fill = document.querySelector('.panel-progress-fill');
+    const label = document.querySelector('.panel-progress .panel-progress-bar');
+    if(fill) fill.style.width = pct+'%';
+    const countEl = document.querySelector('.panel-progress span:last-child');
+    if(countEl) countEl.textContent = `${done} / ${total} (${pct}%)`;
+    if(res.orderComplete){
+      const statusEl = document.querySelector('.panel-status');
+      if(statusEl){ statusEl.className='panel-status completed'; statusEl.textContent='✅ مكتمل'; }
+    }
+  }
 }
 
 // ── Topups ──
