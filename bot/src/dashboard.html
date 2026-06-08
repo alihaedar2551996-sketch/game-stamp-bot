@@ -21,7 +21,8 @@
       display: flex; flex-direction: column;
       position: fixed; top: 0; right: 0; bottom: 0;
       z-index: 50; padding: var(--space-4) 0;
-      transition: transform var(--transition-normal);
+      transform: translateX(0);
+      transition: transform 0.25s ease;
     }
     .sidebar-brand {
       display: flex; align-items: center; gap: var(--space-3);
@@ -231,19 +232,22 @@
 
     @media (max-width: 768px) {
       .sidebar {
-        transform: translateX(100%);
-        transition: transform var(--transition-normal);
-        box-shadow: -4px 0 24px rgba(0,0,0,0.15);
+        transform: translateX(110%) !important;
+        box-shadow: -8px 0 32px rgba(0,0,0,0.25);
+        z-index: 200;
       }
-      .sidebar.open { transform: translateX(0); }
-      .main { margin-right: 0 !important; }
-      .hamburger { display: flex; align-items: center; justify-content: center; }
-      .content { padding: var(--space-4); }
+      .sidebar.open {
+        transform: translateX(0) !important;
+      }
+      .main { margin-right: 0 !important; width: 100%; }
+      .hamburger { display: flex !important; align-items: center; justify-content: center; }
+      .content { padding: var(--space-3); }
       .stats-grid { grid-template-columns: 1fr 1fr; gap: var(--space-3); }
-      .topbar { padding: 0 var(--space-4); }
+      .topbar { padding: 0 var(--space-3); }
       table { font-size: 12px; }
-      th, td { padding: var(--space-2) var(--space-3); }
+      th, td { padding: var(--space-2) var(--space-2); }
       .info-grid { grid-template-columns: 1fr; }
+      .form-card { max-width: 100%; }
     }
     @media (max-width: 400px) {
       .stats-grid { grid-template-columns: 1fr; }
