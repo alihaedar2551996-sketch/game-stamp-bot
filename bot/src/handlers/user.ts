@@ -5,7 +5,7 @@ const SUPPORT_USERNAME = "AutoGamers";
 const SYRIATEL_NUMBER = "35181383";
 const USDT_ADDRESS = "0x77cf846eccb684f524b6a8d357e4dee6ded83a78";
 const SESSION_TIMEOUT_MS = 30 * 60 * 1000; // 30 دقيقة
-const ORDER_PRICE = 2; // سعر الطلب بالدولار
+const PRICE_PER_LEVEL = 0.15; // سعر الليفل الواحد بالدولار
 
 interface Session {
   step: string;
@@ -19,6 +19,7 @@ interface Session {
   topupMethod?: string;
   topupAmount?: string;
   pendingLevels?: number[];
+  pendingPrice?: number;
   expiresAt: number;
 }
 
@@ -191,7 +192,8 @@ export function registerUserHandlers(bot: Bot) {
     const levels = session.pendingLevels!;
 
     // خصم الرصيد
-    const result = await deductBalance(user.id, ORDER_PRICE, `طلب ${session.gameName}`);
+    const orderPrice = session.pendingPrice ?? parseFloat((session.pendingLevels!.length * PRICE_PER_LEVEL).toFixed(2));
+    const result = await deductBalance(user.id, orderPrice, `طلب ${session.gameName}`);
     if (!result.ok) {
       delete sessions[user.id];
       return ctx.reply(
@@ -206,7 +208,7 @@ export function registerUserHandlers(bot: Bot) {
       orderId = await createOrder(user.id, session.gameId!, session.idfa!, session.idfv!, session.iosVersion!, session.appsflyerId!, levels);
     } catch (e) {
       // رجّع الرصيد
-      await deductBalance(user.id, -ORDER_PRICE, "استرداد — فشل إنشاء الطلب");
+      await deductBalance(user.id, -orderPrice, "استرداد — فشل إنشاء الطلب");
       delete sessions[user.id];
       console.error("createOrder failed:", e);
       return ctx.reply(
@@ -310,24 +312,28 @@ ${rows.join("
     if (session.step === "levels") {
       const levels = text.split(/[,،\s]+/).map(l => parseInt(l.trim())).filter(l => !isNaN(l) && l > 0);
       if (!levels.length) return ctx.reply("❌ أرسل أرقام صحيحة مثال: 1, 5, 10, 15");
+      // احسب السعر حسب عدد الليفلات
+      const orderPrice = parseFloat((levels.length * PRICE_PER_LEVEL).toFixed(2));
       // تحقق من الرصيد قبل التأكيد
       const balance = await getUserBalance(user.id);
-      if (balance < ORDER_PRICE) {
+      if (balance < orderPrice) {
         delete sessions[user.id];
         return ctx.reply(
-          `❌ <b>رصيدك غير كافٍ!</b>\n\n💵 رصيدك الحالي: <b>${balance.toFixed(2)}$</b>\n💰 سعر الطلب: <b>${ORDER_PRICE}$</b>\n\nاشحن رصيدك وحاول مجدداً.`,
+          `❌ <b>رصيدك غير كافٍ!</b>\n\n💵 رصيدك الحالي: <b>${balance.toFixed(2)}$</b>\n💰 سعر الطلب: <b>${orderPrice}$</b> (${levels.length} ليفل × ${PRICE_PER_LEVEL}$)\n\nاشحن رصيدك وحاول مجدداً.`,
           { parse_mode: "HTML", reply_markup: new InlineKeyboard().text("💳 شحن رصيد", "show_topup").text("🏠 القائمة", "back_main") }
         );
       }
       // احفظ الليفلات وانتظر تأكيد
       session.step = "confirm";
       session.pendingLevels = levels;
+      session.pendingPrice = orderPrice;
       return ctx.reply(
         `📋 <b>ملخص الطلب</b>\n\n` +
         `${session.gameEmoji} <b>${session.gameName}</b>\n` +
-        `🎯 الليفلات: ${levels.join(", ")} (${levels.length} ليفل)\n` +
-        `💰 السعر: <b>${ORDER_PRICE}$</b>\n` +
-        `💵 رصيدك بعد الطلب: <b>${(balance - ORDER_PRICE).toFixed(2)}$</b>`,
+        `🎯 الليفلات: ${levels.join(", ")}\n` +
+        `🔢 عدد الليفلات: <b>${levels.length}</b>\n` +
+        `💰 السعر: <b>${orderPrice}$</b> (${levels.length} × ${PRICE_PER_LEVEL}$)\n` +
+        `💵 رصيدك بعد الطلب: <b>${(balance - orderPrice).toFixed(2)}$</b>`,
         { parse_mode: "HTML", reply_markup: new InlineKeyboard().text("✅ تأكيد الطلب", "confirm_order").text("❌ إلغاء", "back_main") }
       );
     }
