@@ -87,7 +87,7 @@ export function registerUserHandlers(bot: Bot) {
     );
   });
 
-  // ── طلباتي ──────────────────────────────────────────────
+  // ── ألعابي ───────────────────────────────────────────────
   bot.callbackQuery("show_orders", async (ctx) => {
     ctx.answerCallbackQuery().catch(() => {});
     const user = ctx.from!;
@@ -224,7 +224,7 @@ export function registerUserHandlers(bot: Bot) {
       `🔢 رقم الطلب: #${orderId}\n` +
       `💵 رصيدك المتبقي: <b>${result.newBalance.toFixed(2)}$</b>\n\n` +
       `⏳ ستصلك إشعارات مع كل ليفل ✅`,
-      { parse_mode: "HTML", reply_markup: new InlineKeyboard().text("📋 طلباتي", "show_orders").text("🏠 القائمة", "back_main") }
+      { parse_mode: "HTML", reply_markup: new InlineKeyboard().text("🎮 ألعابي", "show_orders").text("🏠 القائمة", "back_main") }
     );
   });
 
