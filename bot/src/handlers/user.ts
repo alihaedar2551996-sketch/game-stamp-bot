@@ -1,5 +1,5 @@
 import { Bot, InlineKeyboard } from "grammy";
-import { upsertUser, getAllGames, getUserBalance, deductBalance, createOrder, getOrdersByUser, getOrderLevels, createTopupRequest } from "../db/client";
+import { upsertUser, getAllGames, getUserBalance, deductBalance, createOrder, getOrdersByUser, getOrderLevels, getOrder, createTopupRequest } from "../db/client";
 
 const SUPPORT_USERNAME = "AutoGamers";
 const SYRIATEL_NUMBER = "35181383";
@@ -92,44 +92,14 @@ export function registerUserHandlers(bot: Bot) {
   bot.callbackQuery("show_orders", async (ctx) => {
     ctx.answerCallbackQuery().catch(() => {});
     const user = ctx.from!;
-    const orders = await getOrdersByUser(user.id);
+    await sendOrdersList(ctx, user.id);
+  });
 
-    if (!orders.length) {
-      return ctx.reply("📋 ما عندك طلبات بعد.", {
-        reply_markup: new InlineKeyboard().text("🎮 اطلب الآن", "show_games"),
-      });
-    }
-
-    // جيب كل الليفلات بنفس الوقت بدل loop متسلسل
-    const allLevels = await Promise.all(orders.map(o => getOrderLevels(Number(o.id))));
-
-    for (let idx = 0; idx < orders.length; idx++) {
-      const o = orders[idx];
-      const completedIds = allLevels[idx];
-      const doneCount = completedIds.filter(l => Number(l.stamped) === 1).length;
-      const totalCount = completedIds.length;
-      const statusIcon = o.status === "completed" ? "✅" : "⏳";
-
-      const rows: string[] = [];
-      for (let i = 0; i < completedIds.length; i += 4) {
-        const chunk = completedIds.slice(i, i + 4);
-        rows.push(
-          chunk.map(l =>
-            Number(l.stamped) === 1
-              ? `┃ ✅ ${l.level} ┃`
-              : `┃ 🟡 ${l.level} ┃`
-          ).join("  ")
-        );
-      }
-
-      const keyboard = new InlineKeyboard().text("🔙 رجوع", "back_main");
-      await ctx.reply(
-        `${o.emoji} <b>${o.game_name}</b> ${statusIcon}\n` +
-        `📊 ${doneCount}/${totalCount} مكتمل\n\n` +
-        `${rows.join("\n")}`,
-        { parse_mode: "HTML", reply_markup: keyboard }
-      );
-    }
+  // تفاصيل أوردر واحد
+  bot.callbackQuery(/^order_detail_(\d+)$/, async (ctx) => {
+    ctx.answerCallbackQuery().catch(() => {});
+    const orderId = Number(ctx.match[1]);
+    await sendOrderDetail(ctx, orderId);
   });
 
   // ── رصيدي ───────────────────────────────────────────────
@@ -243,29 +213,7 @@ export function registerUserHandlers(bot: Bot) {
   bot.command("games", async (ctx) => {
     const user = ctx.from!;
     await upsertUser(user.id, user.username, user.first_name);
-    const orders = await getOrdersByUser(user.id);
-    if (!orders.length) {
-      return ctx.reply("📋 ما عندك طلبات بعد.", {
-        reply_markup: new InlineKeyboard().text("🕹️ اطلب لعبة", "show_games").text("🏠 القائمة", "back_main"),
-      });
-    }
-    const allLevels = await Promise.all(orders.map(o => getOrderLevels(Number(o.id))));
-    for (let idx = 0; idx < orders.length; idx++) {
-      const o = orders[idx];
-      const completedIds = allLevels[idx];
-      const doneCount = completedIds.filter(l => Number(l.stamped) === 1).length;
-      const totalCount = completedIds.length;
-      const statusIcon = o.status === "completed" ? "✅" : "⏳";
-      const rows: string[] = [];
-      for (let i = 0; i < completedIds.length; i += 4) {
-        const chunk = completedIds.slice(i, i + 4);
-        rows.push(chunk.map(l => Number(l.stamped) === 1 ? `┃ ✅ ${l.level} ┃` : `┃ 🟡 ${l.level} ┃`).join("  "));
-      }
-      await ctx.reply(
-        `${o.emoji} <b>${o.game_name}</b> ${statusIcon}\n📊 ${doneCount}/${totalCount} مكتمل\n\n${rows.join("\n")}`,
-        { parse_mode: "HTML", reply_markup: new InlineKeyboard().text("🏠 القائمة", "back_main") }
-      );
-    }
+    await sendOrdersList(ctx, user.id);
   });
 
   bot.command("profile", async (ctx) => {
@@ -395,6 +343,71 @@ export function registerUserHandlers(bot: Bot) {
     );
   });
 
+}
+
+// ── قائمة الأوردرات (رسالة وحدة + زر لكل أوردر) ─────────────────────────
+async function sendOrdersList(ctx: any, userId: number) {
+  const orders = await getOrdersByUser(userId);
+
+  if (!orders.length) {
+    return ctx.reply("📋 ما عندك طلبات بعد.", {
+      reply_markup: new InlineKeyboard()
+        .text("🕹️ اطلب لعبة", "show_games")
+        .text("🏠 القائمة", "back_main"),
+    });
+  }
+
+  const keyboard = new InlineKeyboard();
+  for (let i = 0; i < orders.length; i++) {
+    const o = orders[i];
+    const statusIcon = o.status === "completed" ? "✅" : "⏳";
+    keyboard.text(`${o.emoji} ${o.game_name} ${statusIcon}`, `order_detail_${o.id}`);
+    keyboard.row();
+  }
+  keyboard.text("🏠 القائمة", "back_main");
+
+  await ctx.reply(
+    `🎮 <b>طلباتك (${orders.length})</b>\n\nاضغط على أي طلب لتشوف تفاصيله:`,
+    { parse_mode: "HTML", reply_markup: keyboard }
+  );
+}
+
+// ── تفاصيل أوردر واحد ────────────────────────────────────────────────────
+async function sendOrderDetail(ctx: any, orderId: number) {
+  const [o, levels] = await Promise.all([
+    getOrder(orderId),
+    getOrderLevels(orderId),
+  ]);
+
+  if (!o) return ctx.reply("❌ الطلب غير موجود.");
+
+  const doneCount = levels.filter(l => Number(l.stamped) === 1).length;
+  const totalCount = levels.length;
+  const statusIcon = o.status === "completed" ? "✅" : "⏳";
+
+  const rows: string[] = [];
+  for (let i = 0; i < levels.length; i += 5) {
+    const chunk = levels.slice(i, i + 5);
+    rows.push(
+      chunk.map(l =>
+        Number(l.stamped) === 1
+          ? `✅ ${l.level}`
+          : `🟡 ${l.level}`
+      ).join("  │  ")
+    );
+  }
+
+  await ctx.reply(
+    `${o.emoji} <b>${o.game_name}</b> ${statusIcon}\n` +
+    `📊 <b>${doneCount}/${totalCount}</b> مكتمل\n\n` +
+    `${rows.join("\n")}`,
+    {
+      parse_mode: "HTML",
+      reply_markup: new InlineKeyboard()
+        .text("🔙 طلباتي", "show_orders")
+        .text("🏠 القائمة", "back_main"),
+    }
+  );
 }
 
 async function sendMainMenu(ctx: any, firstName: string) {
