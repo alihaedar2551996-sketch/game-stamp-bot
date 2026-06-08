@@ -364,7 +364,7 @@ export function registerUserHandlers(bot: Bot) {
 
 async function sendMainMenu(ctx: any, firstName: string) {
   const keyboard = new InlineKeyboard()
-    .text("🎮 اطلب لعبة", "show_games").text("📋 طلباتي", "show_orders")
+    .text("🎮 ألعابي", "show_orders").text("🕹️ اطلب لعبة", "show_games")
     .row()
     .text("💵 رصيدي", "show_balance").text("💳 شحن رصيد", "show_topup")
     .row()
