@@ -71,7 +71,7 @@ export function registerUserHandlers(bot: Bot) {
       if (i % 2 === 1) keyboard.row();
     });
     keyboard.row().text("🔙 رجوع", "back_main");
-    await ctx.reply(`🎮 *اختر اللعبة اللي بدك تختمها:*`, { parse_mode: "MarkdownV2", reply_markup: keyboard });
+    await ctx.reply(`🎮 <b>اختر اللعبة اللي بدك تختمها:</b>`, { parse_mode: "HTML", reply_markup: keyboard });
   });
 
   bot.callbackQuery(/^select_game_(\d+)$/, async (ctx) => {
@@ -82,8 +82,8 @@ export function registerUserHandlers(bot: Bot) {
     if (!game) return ctx.reply("❌ لعبة غير موجودة.");
     setSession(user.id, { step: "idfa", gameId, gameName: String(game.name), gameEmoji: String(game.emoji) });
     await ctx.reply(
-      `${game.emoji} *${game.name}*\n\n📋 محتاج منك بعض المعلومات\n\n*الخطوة 1/4*\nأرسل لي الـ *IDFA*:`,
-      { parse_mode: "MarkdownV2" }
+      `${game.emoji} <b>${game.name}</b>\n\n📋 محتاج منك بعض المعلومات\n\n<b>الخطوة 1/4</b>\nأرسل لي الـ <b>IDFA</b>:`,
+      { parse_mode: "HTML" }
     );
   });
 
@@ -123,10 +123,10 @@ export function registerUserHandlers(bot: Bot) {
 
       const keyboard = new InlineKeyboard().text("🔙 رجوع", "back_main");
       await ctx.reply(
-        `${o.emoji} *${o.game_name}* ${statusIcon}\n` +
+        `${o.emoji} <b>${o.game_name}</b> ${statusIcon}\n` +
         `📊 ${doneCount}/${totalCount} مكتمل\n\n` +
         `${rows.join("\n")}`,
-        { parse_mode: "MarkdownV2", reply_markup: keyboard }
+        { parse_mode: "HTML", reply_markup: keyboard }
       );
     }
   });
@@ -137,16 +137,16 @@ export function registerUserHandlers(bot: Bot) {
     const user = ctx.from!;
     const balance = await getUserBalance(user.id);
     await ctx.reply(
-      `💵 *رصيدك الحالي*\n\n👤 ${user.first_name}\n💰 *${balance.toFixed(2)} دولار*`,
-      { parse_mode: "MarkdownV2", reply_markup: new InlineKeyboard().text("💳 شحن رصيد", "show_topup").text("🔙 رجوع", "back_main") }
+      `💵 <b>رصيدك الحالي</b>\n\n👤 ${user.first_name}\n💰 <b>${balance.toFixed(2)} دولار</b>`,
+      { parse_mode: "HTML", reply_markup: new InlineKeyboard().text("💳 شحن رصيد", "show_topup").text("🔙 رجوع", "back_main") }
     );
   });
 
   // ── شحن رصيد ────────────────────────────────────────────
   bot.callbackQuery("show_topup", async (ctx) => {
     await ctx.answerCallbackQuery();
-    await ctx.reply(`💳 *شحن الرصيد*\n\nاختر طريقة الدفع:`, {
-      parse_mode: "MarkdownV2",
+    await ctx.reply(`💳 <b>شحن الرصيد</b>\n\nاختر طريقة الدفع:`, {
+      parse_mode: "HTML",
       reply_markup: new InlineKeyboard()
         .text("📱 سيريتيل كاش", "topup_syriatel")
         .row()
@@ -161,10 +161,10 @@ export function registerUserHandlers(bot: Bot) {
     const user = ctx.from!;
     setSession(user.id, { step: "topup_amount", topupMethod: "syriatel" });
     await ctx.reply(
-      `📱 *الشحن عبر سيريتيل كاش*\n\n` +
-      `حوّل المبلغ إلى:\n\`${SYRIATEL_NUMBER}\`\n\n` +
-      `بعد التحويل أرسل *المبلغ بالليرة السورية* \(مثال: 1400\):`,
-      { parse_mode: "MarkdownV2" }
+      `📱 <b>الشحن عبر سيريتيل كاش</b>\n\n` +
+      `حوّل المبلغ إلى:\n<code>${SYRIATEL_NUMBER}</code>\n\n` +
+      `بعد التحويل أرسل <b>المبلغ بالليرة السورية</b> (مثال: 1400):`,
+      { parse_mode: "HTML" }
     );
   });
 
@@ -173,11 +173,11 @@ export function registerUserHandlers(bot: Bot) {
     const user = ctx.from!;
     setSession(user.id, { step: "topup_amount", topupMethod: "usdt" });
     await ctx.reply(
-      `🔐 *الشحن عبر USDT \(BEP20\)*\n\n` +
-      `أرسل إلى:\n\`${USDT_ADDRESS}\`\n\n` +
-      `⚠️ *BEP20 فقط\!*\n\n` +
-      `بعد التحويل أرسل *المبلغ الذي حوّلته* \(مثال: 10\):`,
-      { parse_mode: "MarkdownV2" }
+      `🔐 <b>الشحن عبر USDT (BEP20)</b>\n\n` +
+      `أرسل إلى:\n<code>${USDT_ADDRESS}</code>\n\n` +
+      `⚠️ <b>BEP20 فقط!</b>\n\n` +
+      `بعد التحويل أرسل <b>المبلغ الذي حوّلته</b> (مثال: 10):`,
+      { parse_mode: "HTML" }
     );
   });
 
@@ -195,8 +195,8 @@ export function registerUserHandlers(bot: Bot) {
     if (!result.ok) {
       delete sessions[user.id];
       return ctx.reply(
-        `❌ *رصيدك غير كافٍ\!*\n\n💳 اشحن رصيدك وحاول مجدداً\.`,
-        { parse_mode: "MarkdownV2", reply_markup: new InlineKeyboard().text("💳 شحن رصيد", "show_topup") }
+        `❌ <b>رصيدك غير كافٍ!</b>\n\n💳 اشحن رصيدك وحاول مجدداً.`,
+        { parse_mode: "HTML", reply_markup: new InlineKeyboard().text("💳 شحن رصيد", "show_topup") }
       );
     }
 
@@ -205,13 +205,13 @@ export function registerUserHandlers(bot: Bot) {
     delete sessions[user.id];
 
     await ctx.reply(
-      `🎉 *تم إرسال طلبك\!*\n\n` +
-      `${session.gameEmoji} *${session.gameName}*\n` +
+      `🎉 <b>تم إرسال طلبك!</b>\n\n` +
+      `${session.gameEmoji} <b>${session.gameName}</b>\n` +
       `🎯 الليفلات: ${levels.join(", ")}\n` +
-      `🔢 رقم الطلب: \#${orderId}\n` +
-      `💵 رصيدك المتبقي: *${result.newBalance.toFixed(2)}\$*\n\n` +
+      `🔢 رقم الطلب: #${orderId}\n` +
+      `💵 رصيدك المتبقي: <b>${result.newBalance.toFixed(2)}$</b>\n\n` +
       `⏳ ستصلك إشعارات مع كل ليفل ✅`,
-      { parse_mode: "MarkdownV2", reply_markup: new InlineKeyboard().text("📋 طلباتي", "show_orders").text("🏠 القائمة", "back_main") }
+      { parse_mode: "HTML", reply_markup: new InlineKeyboard().text("📋 طلباتي", "show_orders").text("🏠 القائمة", "back_main") }
     );
   });
 
@@ -229,8 +229,8 @@ export function registerUserHandlers(bot: Bot) {
     const [balance, orders] = await Promise.all([getUserBalance(user.id), getOrdersByUser(user.id)]);
     const completed = orders.filter(o => o.status === "completed").length;
     await ctx.reply(
-      `👤 *ملفك الشخصي*\n\n📋 الطلبات المكتملة: ${completed}/${orders.length}\n💵 الرصيد: *${balance.toFixed(2)} دولار*`,
-      { parse_mode: "MarkdownV2", reply_markup: new InlineKeyboard().text("💳 شحن رصيد", "show_topup").url("🆘 الدعم", `https://t.me/${SUPPORT_USERNAME}`) }
+      `👤 <b>ملفك الشخصي</b>\n\n📋 الطلبات المكتملة: ${completed}/${orders.length}\n💵 الرصيد: <b>${balance.toFixed(2)} دولار</b>`,
+      { parse_mode: "HTML", reply_markup: new InlineKeyboard().text("💳 شحن رصيد", "show_topup").url("🆘 الدعم", `https://t.me/${SUPPORT_USERNAME}`) }
     );
   });
 
@@ -244,21 +244,21 @@ export function registerUserHandlers(bot: Bot) {
     // فلو الطلب
     if (session.step === "idfa") {
       session.idfa = text; session.step = "idfv";
-      return ctx.reply(`✅ IDFA تم\!\n\n*الخطوة 2/4*\nأرسل الـ *IDFV*:`, { parse_mode: "MarkdownV2" });
+      return ctx.reply(`✅ IDFA تم!\n\n<b>الخطوة 2/4</b>\nأرسل الـ <b>IDFV</b>:`, { parse_mode: "HTML" });
     }
     if (session.step === "idfv") {
       session.idfv = text; session.step = "ios";
-      return ctx.reply(`✅ IDFV تم\!\n\n*الخطوة 3/4*\nأرسل *إصدار iOS* \(مثال: 18\.2\):`, { parse_mode: "MarkdownV2" });
+      return ctx.reply(`✅ IDFV تم!\n\n<b>الخطوة 3/4</b>\nأرسل <b>إصدار iOS</b> (مثال: 18.2):`, { parse_mode: "HTML" });
     }
     if (session.step === "ios") {
       session.iosVersion = text; session.step = "appsflyer";
-      return ctx.reply(`✅ iOS تم\!\n\n*الخطوة 4/4*\nأرسل الـ *AppsFlyer ID*:`, { parse_mode: "MarkdownV2" });
+      return ctx.reply(`✅ iOS تم!\n\n<b>الخطوة 4/4</b>\nأرسل الـ <b>AppsFlyer ID</b>:`, { parse_mode: "HTML" });
     }
     if (session.step === "appsflyer") {
       session.appsflyerId = text; session.step = "levels";
       return ctx.reply(
-        `✅ AppsFlyer ID تم\!\n\n🎯 *الخطوة الأخيرة\!*\nأرسل أرقام الليفلات مفصولة بفواصل\n_مثال: 1, 5, 10, 15, 20_`,
-        { parse_mode: "MarkdownV2" }
+        `✅ AppsFlyer ID تم!\n\n🎯 <b>الخطوة الأخيرة!</b>\nأرسل أرقام الليفلات مفصولة بفواصل\n<i>مثال: 1, 5, 10, 15, 20</i>`,
+        { parse_mode: "HTML" }
       );
     }
     if (session.step === "levels") {
@@ -269,20 +269,20 @@ export function registerUserHandlers(bot: Bot) {
       if (balance < ORDER_PRICE) {
         delete sessions[user.id];
         return ctx.reply(
-          `❌ *رصيدك غير كافٍ\!*\n\n💵 رصيدك الحالي: *${balance.toFixed(2)}\$*\n💰 سعر الطلب: *${ORDER_PRICE}\$*\n\nاشحن رصيدك وحاول مجدداً\.`,
-          { parse_mode: "MarkdownV2", reply_markup: new InlineKeyboard().text("💳 شحن رصيد", "show_topup").text("🏠 القائمة", "back_main") }
+          `❌ <b>رصيدك غير كافٍ!</b>\n\n💵 رصيدك الحالي: <b>${balance.toFixed(2)}$</b>\n💰 سعر الطلب: <b>${ORDER_PRICE}$</b>\n\nاشحن رصيدك وحاول مجدداً.`,
+          { parse_mode: "HTML", reply_markup: new InlineKeyboard().text("💳 شحن رصيد", "show_topup").text("🏠 القائمة", "back_main") }
         );
       }
       // احفظ الليفلات وانتظر تأكيد
       session.step = "confirm";
       session.pendingLevels = levels;
       return ctx.reply(
-        `📋 *ملخص الطلب*\n\n` +
-        `${session.gameEmoji} *${session.gameName}*\n` +
-        `🎯 الليفلات: ${levels.join(", ")} \(${levels.length} ليفل\)\n` +
-        `💰 السعر: *${ORDER_PRICE}\$*\n` +
-        `💵 رصيدك بعد الطلب: *${(balance - ORDER_PRICE).toFixed(2)}\$*`,
-        { parse_mode: "MarkdownV2", reply_markup: new InlineKeyboard().text("✅ تأكيد الطلب", "confirm_order").text("❌ إلغاء", "back_main") }
+        `📋 <b>ملخص الطلب</b>\n\n` +
+        `${session.gameEmoji} <b>${session.gameName}</b>\n` +
+        `🎯 الليفلات: ${levels.join(", ")} (${levels.length} ليفل)\n` +
+        `💰 السعر: <b>${ORDER_PRICE}$</b>\n` +
+        `💵 رصيدك بعد الطلب: <b>${(balance - ORDER_PRICE).toFixed(2)}$</b>`,
+        { parse_mode: "HTML", reply_markup: new InlineKeyboard().text("✅ تأكيد الطلب", "confirm_order").text("❌ إلغاء", "back_main") }
       );
     }
     if (session.step === "confirm") {
@@ -299,16 +299,16 @@ export function registerUserHandlers(bot: Bot) {
       let amountDisplay: string;
       if (session.topupMethod === "syriatel") {
         amountUSD = Number(raw) / SYP_RATE;
-        amountDisplay = `${Number(raw).toLocaleString()} ل.س = *${amountUSD.toFixed(2)}$*`;
+        amountDisplay = `${Number(raw).toLocaleString()} ل.س = <b>${amountUSD.toFixed(2)}$</b>`;
       } else {
         amountUSD = Number(raw);
-        amountDisplay = `*${amountUSD.toFixed(2)}$*`;
+        amountDisplay = `<b>${amountUSD.toFixed(2)}$</b>`;
       }
       session.topupAmount = amountUSD.toFixed(2);
       session.step = "topup_proof";
       return ctx.reply(
-        `💰 المبلغ: ${amountDisplay}\n\n📸 الآن أرسل *رقم العملية* أو *صورة التحويل*:`,
-        { parse_mode: "MarkdownV2" }
+        `💰 المبلغ: ${amountDisplay}\n\n📸 الآن أرسل <b>رقم العملية</b> أو <b>صورة التحويل</b>:`,
+        { parse_mode: "HTML" }
       );
     }
 
@@ -318,12 +318,12 @@ export function registerUserHandlers(bot: Bot) {
       const reqId = await createTopupRequest(user.id, session.topupMethod!, session.topupAmount!, txId, null);
       delete sessions[user.id];
       return ctx.reply(
-        `✅ *تم استلام طلب الشحن بنجاح\!*\n\n` +
-        `💰 المبلغ: *${session.topupAmount}\$*\n` +
-        `🔢 رقم العملية: \`${txId}\`\n` +
-        `📋 رقم الطلب: *\#${reqId}*\n\n` +
+        `✅ <b>تم استلام طلب الشحن بنجاح!</b>\n\n` +
+        `💰 المبلغ: <b>${session.topupAmount}$</b>\n` +
+        `🔢 رقم العملية: <code>${txId}</code>\n` +
+        `📋 رقم الطلب: <b>#${reqId}</b>\n\n` +
         `⏳ سيتم مراجعة طلبك وإضافة الرصيد في أقرب وقت ممكن 🙏`,
-        { parse_mode: "MarkdownV2", reply_markup: new InlineKeyboard().text("🏠 القائمة", "back_main") }
+        { parse_mode: "HTML", reply_markup: new InlineKeyboard().text("🏠 القائمة", "back_main") }
       );
     }
   });
@@ -339,11 +339,11 @@ export function registerUserHandlers(bot: Bot) {
     delete sessions[user.id];
 
     await ctx.reply(
-      `✅ *تم استلام طلب الشحن بنجاح\!*\n\n` +
-      `💰 المبلغ: *${session.topupAmount}\$*\n` +
-      `🔢 رقم الطلب: *\#${reqId}*\n\n` +
+      `✅ <b>تم استلام طلب الشحن بنجاح!</b>\n\n` +
+      `💰 المبلغ: <b>${session.topupAmount}$</b>\n` +
+      `🔢 رقم الطلب: <b>#${reqId}</b>\n\n` +
       `⏳ سيتم مراجعة طلبك وإضافة الرصيد في أقرب وقت ممكن 🙏`,
-      { parse_mode: "MarkdownV2", reply_markup: new InlineKeyboard().text("🏠 القائمة", "back_main") }
+      { parse_mode: "HTML", reply_markup: new InlineKeyboard().text("🏠 القائمة", "back_main") }
     );
   });
 

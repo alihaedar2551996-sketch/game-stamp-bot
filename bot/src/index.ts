@@ -78,8 +78,8 @@ app.post("/api/topups/:id/approve", async (c) => {
   const result = await approveTopup(Number(c.req.param("id")), Number(amount));
   try {
     await bot.api.sendMessage(result.userId,
-      `✅ *تم قبول طلب الشحن\!*\n\n💰 تم إضافة *${Number(amount).toFixed(2)} دولار* لرصيدك\n💵 رصيدك الحالي: *${result.newBalance.toFixed(2)} دولار*`,
-      { parse_mode: "MarkdownV2" }
+      `✅ <b>تم قبول طلب الشحن!</b>\n\n💰 تم إضافة <b>${Number(amount).toFixed(2)} دولار</b> لرصيدك\n💵 رصيدك الحالي: <b>${result.newBalance.toFixed(2)} دولار</b>`,
+      { parse_mode: "HTML" }
     );
   } catch(e) { console.error(e); }
   return c.json({ success: true, newBalance: result.newBalance });
@@ -90,8 +90,8 @@ app.post("/api/topups/:id/reject", async (c) => {
   const userId = await rejectTopup(Number(c.req.param("id")));
   try {
     await bot.api.sendMessage(userId,
-      `❌ *تم رفض طلب الشحن*\n\nتواصل مع الدعم لمزيد من المعلومات\.`,
-      { parse_mode: "MarkdownV2" }
+      `❌ <b>تم رفض طلب الشحن</b>\n\nتواصل مع الدعم لمزيد من المعلومات.`,
+      { parse_mode: "HTML" }
     );
   } catch(e) { console.error(e); }
   return c.json({ success: true });
@@ -110,13 +110,13 @@ app.post("/api/stamp-level", async (c) => {
       const allLevels = String(order.levels).split(",").map(Number);
       if (order.status === "completed") {
         await bot.api.sendMessage(Number(order.user_tg_id),
-          `🎉 *مبروك\! اكتمل طلبك بالكامل\!*\n\n${order.emoji} *${order.game_name}*\n✅ تم ختم جميع الليفلات: ${allLevels.join(", ")}\n\nأنت بطل حقيقي\! 🏆`,
-          { parse_mode: "MarkdownV2" }
+          `🎉 <b>مبروك! اكتمل طلبك بالكامل!</b>\n\n${order.emoji} <b>${order.game_name}</b>\n✅ تم ختم جميع الليفلات: ${allLevels.join(", ")}\n\nأنت بطل حقيقي! 🏆`,
+          { parse_mode: "HTML" }
         );
       } else {
         await bot.api.sendMessage(Number(order.user_tg_id),
-          `✅ *تم ختم ليفل جديد\!*\n\n${order.emoji} *${order.game_name}*\n🎯 الليفل *${level}* تم ختمه بنجاح\!\n\nاستمر\! 💪`,
-          { parse_mode: "MarkdownV2" }
+          `✅ <b>تم ختم ليفل جديد!</b>\n\n${order.emoji} <b>${order.game_name}</b>\n🎯 الليفل <b>${level}</b> تم ختمه بنجاح!\n\nاستمر! 💪`,
+          { parse_mode: "HTML" }
         );
       }
     } catch(e) { console.error("Notify error:", e); }
@@ -133,8 +133,8 @@ app.post("/api/balance", async (c) => {
   try {
     const sign = amount >= 0 ? "+" : "";
     await bot.api.sendMessage(tgId,
-      `💵 *تم تحديث رصيدك\!*\n\n${sign}${amount.toFixed(2)} دولار\n💰 رصيدك الحالي: *${newBalance.toFixed(2)} دولار*` + (note ? `\n📝 ${note}` : ""),
-      { parse_mode: "MarkdownV2" }
+      `💵 <b>تم تحديث رصيدك!</b>\n\n${sign}${amount.toFixed(2)} دولار\n💰 رصيدك الحالي: <b>${newBalance.toFixed(2)} دولار</b>` + (note ? `\n📝 ${note}` : ""),
+      { parse_mode: "HTML" }
     );
   } catch(e) { console.error(e); }
   return c.json({ success: true, newBalance });
