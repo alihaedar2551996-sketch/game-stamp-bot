@@ -237,6 +237,39 @@ export function registerUserHandlers(bot: Bot) {
   });
 
   // /profile
+  // /games — ألعابي
+  bot.command("games", async (ctx) => {
+    const user = ctx.from!;
+    await upsertUser(user.id, user.username, user.first_name);
+    const orders = await getOrdersByUser(user.id);
+    if (!orders.length) {
+      return ctx.reply("📋 ما عندك طلبات بعد.", {
+        reply_markup: new InlineKeyboard().text("🕹️ اطلب لعبة", "show_games").text("🏠 القائمة", "back_main"),
+      });
+    }
+    const allLevels = await Promise.all(orders.map(o => getOrderLevels(Number(o.id))));
+    for (let idx = 0; idx < orders.length; idx++) {
+      const o = orders[idx];
+      const completedIds = allLevels[idx];
+      const doneCount = completedIds.filter(l => Number(l.stamped) === 1).length;
+      const totalCount = completedIds.length;
+      const statusIcon = o.status === "completed" ? "✅" : "⏳";
+      const rows: string[] = [];
+      for (let i = 0; i < completedIds.length; i += 4) {
+        const chunk = completedIds.slice(i, i + 4);
+        rows.push(chunk.map(l => Number(l.stamped) === 1 ? `┃ ✅ ${l.level} ┃` : `┃ 🟡 ${l.level} ┃`).join("  "));
+      }
+      await ctx.reply(
+        `${o.emoji} <b>${o.game_name}</b> ${statusIcon}
+📊 ${doneCount}/${totalCount} مكتمل
+
+${rows.join("
+")}`,
+        { parse_mode: "HTML", reply_markup: new InlineKeyboard().text("🏠 القائمة", "back_main") }
+      );
+    }
+  });
+
   bot.command("profile", async (ctx) => {
     const user = ctx.from!;
     const [balance, orders] = await Promise.all([getUserBalance(user.id), getOrdersByUser(user.id)]);
