@@ -478,7 +478,16 @@ export function registerUserHandlers(bot: Bot) {
       );
     }
     if (session.step === "levels") {
-      const levels = text.split(/[,،\s]+/).map(l => parseInt(l.trim())).filter(l => !isNaN(l) && l > 0);
+      // فلترة: أرقام نظيفة فقط (بدون نصوص مختلطة) + إزالة المكررات
+      const rawParts = text.split(/[,،\s]+/);
+      const levels = [...new Set(
+        rawParts
+          .map(l => l.trim())
+          .filter(l => /^\d+$/.test(l))   // رقم نظيف بدون أي حرف
+          .map(l => parseInt(l))
+          .filter(l => l > 0)
+      )];
+      const skipped = rawParts.filter(l => l.trim() && !/^\d+$/.test(l.trim()));
       if (!levels.length) return ctx.reply("❌ أرسل أرقام صحيحة مثال: 1, 5, 10, 15");
       // احسب السعر حسب عدد الليفلات
       const orderPrice = parseFloat((levels.length * PRICE_PER_LEVEL).toFixed(2));
@@ -496,6 +505,7 @@ export function registerUserHandlers(bot: Bot) {
       session.pendingLevels = levels;
       session.pendingPrice = orderPrice;
       return ctx.reply(
+        (skipped.length ? `⚠️ <b>تم تجاهل هذه القيم (مش أرقام):</b> ${skipped.join(", ")}\n\n` : \`\`) +
         `📋 <b>ملخص الطلب</b>\n\n` +
         `${session.gameEmoji} <b>${session.gameName}</b>\n` +
         `🎯 الليفلات: ${levels.join(", ")}\n` +
