@@ -253,22 +253,43 @@ async function main() {
 
   (async () => {
     try {
-      log("INFO", "INIT", "Initializing database...");
-      await initDB();
-      log("INFO", "INIT", "✅ DB initialized");
-
-      await initTopupTable();
-      log("INFO", "INIT", "✅ Topup & referral tables ready");
-
-      await seedGames();
-      log("INFO", "INIT", "✅ Games seeded");
+      // retry للـ DB لو الاتصال بطيء
+      let dbAttempts = 0;
+      while (dbAttempts < 5) {
+        try {
+          log("INFO", "INIT", `Initializing database (attempt ${dbAttempts + 1}/5)...`);
+          await initDB();
+          await initTopupTable();
+          await seedGames();
+          log("INFO", "INIT", "✅ DB ready");
+          break;
+        } catch (e) {
+          dbAttempts++;
+          log("WARN", "INIT", `DB init attempt ${dbAttempts}/5 failed — retrying in 3s...`, e);
+          if (dbAttempts >= 5) throw e;
+          await new Promise(r => setTimeout(r, 3000));
+        }
+      }
 
       if (WEBHOOK_URL) {
         const webhookEndpoint = `${WEBHOOK_URL}/webhook/${WEBHOOK_SECRET}`;
-        await bot.api.setWebhook(webhookEndpoint);
-        const info = await bot.api.getWebhookInfo();
-        log("INFO", "WEBHOOK", `✅ Webhook set → ${webhookEndpoint}`);
-        log("INFO", "WEBHOOK", `pending_updates=${info.pending_update_count} | last_error=${info.last_error_message ?? "none"}`);
+
+        // retry حتى 5 مرات لو فشل الـ webhook
+        let attempts = 0;
+        while (attempts < 5) {
+          try {
+            await bot.api.setWebhook(webhookEndpoint);
+            const info = await bot.api.getWebhookInfo();
+            log("INFO", "WEBHOOK", `✅ Webhook set → ${webhookEndpoint}`);
+            log("INFO", "WEBHOOK", `pending_updates=${info.pending_update_count} | last_error=${info.last_error_message ?? "none"}`);
+            break;
+          } catch (e) {
+            attempts++;
+            log("WARN", "WEBHOOK", `attempt ${attempts}/5 failed — retrying in 3s...`, e);
+            if (attempts >= 5) throw e;
+            await new Promise(r => setTimeout(r, 3000));
+          }
+        }
       } else {
         log("INFO", "POLLING", "No WEBHOOK_URL — starting long polling...");
         bot.start({ onStart: () => log("INFO", "POLLING", "✅ Bot polling started") });
