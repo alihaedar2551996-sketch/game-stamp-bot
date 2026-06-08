@@ -72,24 +72,29 @@ export function registerUserHandlers(bot: Bot) {
       const levels = String(o.levels).split(",").map(Number);
       const completedIds = await getOrderLevels(Number(o.id));
 
-      let levelsText = "";
-      for (const l of completedIds) {
-        const stamped = Number(l.stamped) === 1;
-        levelsText += stamped
-          ? `🟢 ليفل ${l.level}  `
-          : `🟡 ليفل ${l.level}  `;
-      }
-
       const doneCount = completedIds.filter(l => Number(l.stamped) === 1).length;
       const totalCount = completedIds.length;
       const statusIcon = o.status === "completed" ? "✅" : "⏳";
+
+      // كل ليفل بمربع مع فاصل
+      const rows: string[] = [];
+      for (let i = 0; i < completedIds.length; i += 4) {
+        const chunk = completedIds.slice(i, i + 4);
+        rows.push(
+          chunk.map(l =>
+            Number(l.stamped) === 1
+              ? `┃ ✅ ${l.level} ┃`
+              : `┃ 🟡 ${l.level} ┃`
+          ).join("  ")
+        );
+      }
 
       const keyboard = new InlineKeyboard().text("🔙 رجوع", "back_main");
 
       await ctx.reply(
         `${o.emoji} *${o.game_name}* ${statusIcon}\n` +
         `📊 ${doneCount}/${totalCount} مكتمل\n\n` +
-        `${levelsText.trim()}`,
+        `${rows.join("\n")}`,
         { parse_mode: "Markdown", reply_markup: keyboard }
       );
     }
