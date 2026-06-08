@@ -369,6 +369,25 @@ export function registerUserHandlers(bot: Bot) {
     );
   });
 
+  // ── حول البوت ───────────────────────────────────────────
+  bot.callbackQuery("about_bot", async (ctx) => {
+    ctx.answerCallbackQuery().catch(() => {});
+    await ctx.reply(
+      `🎮 <b>AutoGamer Bot</b>\n` +
+      `البوت المتخصص في ختم جميع مراحل ومستويات ألعاب منصة AppsFlyer حصرياً!\n\n` +
+      `⚡ <b>ميزات البوت:</b>\n` +
+      `• <b>ختم المراحل عن بعد:</b> بدون أي تعب أو تضييع وقت.\n` +
+      `• <b>محاكاة بشرية 100%:</b> أمان تام وتخطي ذكي للأنظمة.\n` +
+      `• <b>احتساب فوري:</b> تنتهي المهمة وتحسب مكافأتك فوراً!\n\n` +
+      `🤖 اضغط /start وابدأ الآن!`,
+      {
+        parse_mode: "HTML",
+        reply_markup: new InlineKeyboard()
+          .text("🏠 القائمة", "back_main"),
+      }
+    );
+  });
+
   // /profile
   // /games — ألعابي
   bot.command("games", async (ctx) => {
@@ -579,7 +598,7 @@ async function sendMainMenu(ctx: any, firstName: string) {
     .row()
     .text("🎁 دعوة صديق", "invite_friend")
     .row()
-    .text("📖 تعليمات", "help_menu")
+    .text("📖 تعليمات", "help_menu").text("ℹ️ حول", "about_bot")
     .row()
     .url("🆘 الدعم", `https://t.me/${SUPPORT_USERNAME}`);
   await ctx.reply(
