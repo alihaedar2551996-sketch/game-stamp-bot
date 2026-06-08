@@ -243,7 +243,10 @@ export function registerUserHandlers(bot: Bot) {
     delete sessions[user.id];
 
     await ctx.reply(
-      `✅ *تم استلام طلب الشحن!*\n\n💰 المبلغ: *${session.topupAmount}$*\n🔢 رقم الطلب: #${reqId}\n\n⏳ سيتم مراجعته وإضافة رصيدك قريباً!`,
+      `✅ *تم استلام طلب الشحن بنجاح!*\n\n` +
+      `💰 المبلغ: *${session.topupAmount}$*\n` +
+      `🔢 رقم الطلب: *#${reqId}*\n\n` +
+      `⏳ سيتم مراجعة طلبك وإضافة الرصيد في أقرب وقت ممكن 🙏`,
       { parse_mode: "Markdown", reply_markup: new InlineKeyboard().text("🏠 القائمة", "back_main") }
     );
   });
@@ -259,7 +262,11 @@ export function registerUserHandlers(bot: Bot) {
     delete sessions[user.id];
 
     await ctx.reply(
-      `✅ *تم استلام طلب الشحن!*\n\n💰 المبلغ: *${session.topupAmount}$*\n🔢 رقم العملية: \`${txId}\`\n📋 رقم الطلب: #${reqId}\n\n⏳ سيتم مراجعته وإضافة رصيدك قريباً!`,
+      `✅ *تم استلام طلب الشحن بنجاح!*\n\n` +
+      `💰 المبلغ: *${session.topupAmount}$*\n` +
+      `🔢 رقم العملية: \`${txId}\`\n` +
+      `📋 رقم الطلب: *#${reqId}*\n\n` +
+      `⏳ سيتم مراجعة طلبك وإضافة الرصيد في أقرب وقت ممكن 🙏`,
       { parse_mode: "Markdown", reply_markup: new InlineKeyboard().text("🏠 القائمة", "back_main") }
     );
   });
