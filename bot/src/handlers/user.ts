@@ -4,8 +4,9 @@ import { upsertUser, getAllGames, getUserBalance, createOrder, getOrdersByUser, 
 const SUPPORT_USERNAME = "AutoGamers";
 const SYRIATEL_NUMBER = "35181383";
 const USDT_ADDRESS = "0x77cf846eccb684f524b6a8d357e4dee6ded83a78";
+const SESSION_TIMEOUT_MS = 30 * 60 * 1000; // 30 دقيقة
 
-const sessions: Record<number, {
+interface Session {
   step: string;
   gameId?: number;
   gameName?: string;
@@ -16,7 +17,34 @@ const sessions: Record<number, {
   appsflyerId?: string;
   topupMethod?: string;
   topupAmount?: string;
-}> = {};
+  expiresAt: number;
+}
+
+const sessions: Record<number, Session> = {};
+
+function getSession(userId: number): Session | undefined {
+  const s = sessions[userId];
+  if (!s) return undefined;
+  if (Date.now() > s.expiresAt) {
+    delete sessions[userId];
+    return undefined;
+  }
+  // تجديد الـ timeout مع كل تفاعل
+  s.expiresAt = Date.now() + SESSION_TIMEOUT_MS;
+  return s;
+}
+
+function setSession(userId: number, data: Omit<Session, "expiresAt">) {
+  sessions[userId] = { ...data, expiresAt: Date.now() + SESSION_TIMEOUT_MS };
+}
+
+// تنظيف الجلسات المنتهية كل 10 دقائق
+setInterval(() => {
+  const now = Date.now();
+  for (const id in sessions) {
+    if (now > sessions[Number(id)].expiresAt) delete sessions[Number(id)];
+  }
+}, 10 * 60 * 1000);
 
 export function registerUserHandlers(bot: Bot) {
 
@@ -48,7 +76,7 @@ export function registerUserHandlers(bot: Bot) {
     const games = await getAllGames();
     const game = games.find(g => Number(g.id) === gameId);
     if (!game) return ctx.reply("❌ لعبة غير موجودة.");
-    sessions[user.id] = { step: "idfa", gameId, gameName: String(game.name), gameEmoji: String(game.emoji) };
+    setSession(user.id, { step: "idfa", gameId, gameName: String(game.name), gameEmoji: String(game.emoji) });
     await ctx.reply(
       `${game.emoji} *${game.name}*\n\n📋 محتاج منك بعض المعلومات\n\n*الخطوة 1/4*\nأرسل لي الـ *IDFA*:`,
       { parse_mode: "Markdown" }
@@ -67,16 +95,12 @@ export function registerUserHandlers(bot: Bot) {
       });
     }
 
-    // عرض كل لعبة لحالها
     for (const o of orders) {
-      const levels = String(o.levels).split(",").map(Number);
       const completedIds = await getOrderLevels(Number(o.id));
-
       const doneCount = completedIds.filter(l => Number(l.stamped) === 1).length;
       const totalCount = completedIds.length;
       const statusIcon = o.status === "completed" ? "✅" : "⏳";
 
-      // كل ليفل بمربع مع فاصل
       const rows: string[] = [];
       for (let i = 0; i < completedIds.length; i += 4) {
         const chunk = completedIds.slice(i, i + 4);
@@ -90,7 +114,6 @@ export function registerUserHandlers(bot: Bot) {
       }
 
       const keyboard = new InlineKeyboard().text("🔙 رجوع", "back_main");
-
       await ctx.reply(
         `${o.emoji} *${o.game_name}* ${statusIcon}\n` +
         `📊 ${doneCount}/${totalCount} مكتمل\n\n` +
@@ -111,7 +134,7 @@ export function registerUserHandlers(bot: Bot) {
     );
   });
 
-  // ── شحن رصيد: اختيار الطريقة ────────────────────────────
+  // ── شحن رصيد ────────────────────────────────────────────
   bot.callbackQuery("show_topup", async (ctx) => {
     await ctx.answerCallbackQuery();
     await ctx.reply(`💳 *شحن الرصيد*\n\nاختر طريقة الدفع:`, {
@@ -125,11 +148,10 @@ export function registerUserHandlers(bot: Bot) {
     });
   });
 
-  // سيريتيل كاش — عرض المعلومات وطلب المبلغ
   bot.callbackQuery("topup_syriatel", async (ctx) => {
     await ctx.answerCallbackQuery();
     const user = ctx.from!;
-    sessions[user.id] = { step: "topup_amount", topupMethod: "syriatel" };
+    setSession(user.id, { step: "topup_amount", topupMethod: "syriatel" });
     await ctx.reply(
       `📱 *الشحن عبر سيريتيل كاش*\n\n` +
       `حوّل المبلغ إلى:\n\`${SYRIATEL_NUMBER}\`\n\n` +
@@ -138,11 +160,10 @@ export function registerUserHandlers(bot: Bot) {
     );
   });
 
-  // USDT — عرض المعلومات وطلب المبلغ
   bot.callbackQuery("topup_usdt", async (ctx) => {
     await ctx.answerCallbackQuery();
     const user = ctx.from!;
-    sessions[user.id] = { step: "topup_amount", topupMethod: "usdt" };
+    setSession(user.id, { step: "topup_amount", topupMethod: "usdt" });
     await ctx.reply(
       `🔐 *الشحن عبر USDT (BEP20)*\n\n` +
       `أرسل إلى:\n\`${USDT_ADDRESS}\`\n\n` +
@@ -174,7 +195,7 @@ export function registerUserHandlers(bot: Bot) {
   // ── استقبال الرسائل النصية ───────────────────────────────
   bot.on("message:text", async (ctx) => {
     const user = ctx.from!;
-    const session = sessions[user.id];
+    const session = getSession(user.id);
     if (!session) return;
     const text = ctx.message.text.trim();
 
@@ -213,7 +234,7 @@ export function registerUserHandlers(bot: Bot) {
     if (session.step === "topup_amount") {
       const raw = text.replace(/[^\d.]/g, "");
       if (!raw || isNaN(Number(raw))) return ctx.reply("❌ أرسل رقم صحيح");
-      const SYP_RATE = 140; // 140 ليرة = 1 دولار
+      const SYP_RATE = 140;
       let amountUSD: number;
       let amountDisplay: string;
       if (session.topupMethod === "syriatel") {
@@ -231,7 +252,7 @@ export function registerUserHandlers(bot: Bot) {
       );
     }
 
-    // فلو الشحن — إثبات نصي (رقم العملية)
+    // فلو الشحن — إثبات نصي
     if (session.step === "topup_proof") {
       const txId = ctx.message.text.trim();
       const reqId = await createTopupRequest(user.id, session.topupMethod!, session.topupAmount!, txId, null);
@@ -250,7 +271,7 @@ export function registerUserHandlers(bot: Bot) {
   // ── استقبال الصور (إثبات الشحن) ─────────────────────────
   bot.on("message:photo", async (ctx) => {
     const user = ctx.from!;
-    const session = sessions[user.id];
+    const session = getSession(user.id);
     if (!session || session.step !== "topup_proof") return;
 
     const photoId = ctx.message.photo[ctx.message.photo.length - 1].file_id;
@@ -265,7 +286,6 @@ export function registerUserHandlers(bot: Bot) {
       { parse_mode: "Markdown", reply_markup: new InlineKeyboard().text("🏠 القائمة", "back_main") }
     );
   });
-
 
 }
 

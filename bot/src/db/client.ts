@@ -54,8 +54,8 @@ export async function initDB() {
     await db.execute(sql);
   }
 
-  // migrate قديم
-  try { await db.execute(`ALTER TABLE users ADD COLUMN balance REAL NOT NULL DEFAULT 0`); } catch {}
+  // migration: إضافة عمود balance إذا ما كان موجود (للقواعد القديمة)
+  await db.execute(`ALTER TABLE users ADD COLUMN balance REAL NOT NULL DEFAULT 0`).catch(() => {});
 
   console.log("✅ DB initialized");
 }
