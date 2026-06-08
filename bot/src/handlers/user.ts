@@ -48,6 +48,9 @@ setInterval(() => {
   }
 }, 10 * 60 * 1000);
 
+// cache الألعاب في الذاكرة — بتتحمل مرة وحدة
+let gamesCache: Awaited<ReturnType<typeof getAllGames>> = [];
+
 export function registerUserHandlers(bot: Bot) {
 
   // /start
@@ -61,9 +64,9 @@ export function registerUserHandlers(bot: Bot) {
   // ── ألعابي ──────────────────────────────────────────────
   bot.callbackQuery("show_games", async (ctx) => {
     await ctx.answerCallbackQuery();
-    const games = await getAllGames();
+    if (!gamesCache.length) gamesCache = await getAllGames();
     const keyboard = new InlineKeyboard();
-    games.forEach((g, i) => {
+    gamesCache.forEach((g, i) => {
       keyboard.text(`${g.emoji} ${g.name}`, `select_game_${g.id}`);
       if (i % 2 === 1) keyboard.row();
     });
@@ -75,8 +78,7 @@ export function registerUserHandlers(bot: Bot) {
     await ctx.answerCallbackQuery();
     const user = ctx.from!;
     const gameId = Number(ctx.match[1]);
-    const games = await getAllGames();
-    const game = games.find(g => Number(g.id) === gameId);
+    const game = gamesCache.find(g => Number(g.id) === gameId);
     if (!game) return ctx.reply("❌ لعبة غير موجودة.");
     setSession(user.id, { step: "idfa", gameId, gameName: String(game.name), gameEmoji: String(game.emoji) });
     await ctx.reply(
@@ -97,8 +99,12 @@ export function registerUserHandlers(bot: Bot) {
       });
     }
 
-    for (const o of orders) {
-      const completedIds = await getOrderLevels(Number(o.id));
+    // جيب كل الليفلات بنفس الوقت بدل loop متسلسل
+    const allLevels = await Promise.all(orders.map(o => getOrderLevels(Number(o.id))));
+
+    for (let idx = 0; idx < orders.length; idx++) {
+      const o = orders[idx];
+      const completedIds = allLevels[idx];
       const doneCount = completedIds.filter(l => Number(l.stamped) === 1).length;
       const totalCount = completedIds.length;
       const statusIcon = o.status === "completed" ? "✅" : "⏳";
