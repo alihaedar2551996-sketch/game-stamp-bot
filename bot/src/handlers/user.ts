@@ -18,6 +18,7 @@ interface Session {
   appsflyerId?: string;
   topupMethod?: string;
   topupAmount?: string;
+  pendingLevels?: number[];
   expiresAt: number;
 }
 
@@ -181,7 +182,7 @@ export function registerUserHandlers(bot: Bot) {
     const session = getSession(user.id);
     if (!session || session.step !== "confirm") return ctx.reply("❌ انتهت الجلسة، ابدأ من جديد.");
 
-    const levels = (session as any).pendingLevels as number[];
+    const levels = session.pendingLevels!;
 
     // خصم الرصيد
     const result = await deductBalance(user.id, ORDER_PRICE, `طلب ${session.gameName}`);
@@ -268,7 +269,7 @@ export function registerUserHandlers(bot: Bot) {
       }
       // احفظ الليفلات وانتظر تأكيد
       session.step = "confirm";
-      (session as any).pendingLevels = levels;
+      session.pendingLevels = levels;
       return ctx.reply(
         `📋 *ملخص الطلب*\n\n` +
         `${session.gameEmoji} *${session.gameName}*\n` +
