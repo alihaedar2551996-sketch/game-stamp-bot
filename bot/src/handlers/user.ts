@@ -178,11 +178,22 @@ export function registerUserHandlers(bot: Bot) {
   });
 
   // ── تأكيد الطلب ─────────────────────────────────────────
+  // منع الضغط المزدوج على تأكيد الطلب
+  const processingConfirm = new Set<number>();
+
   bot.callbackQuery("confirm_order", async (ctx) => {
     ctx.answerCallbackQuery().catch(() => {});
     const user = ctx.from!;
+
+    // لو في نفس المستخدم ضغط مرتين بنفس الوقت — تجاهل
+    if (processingConfirm.has(user.id)) return;
+    processingConfirm.add(user.id);
+
     const session = getSession(user.id);
-    if (!session || session.step !== "confirm") return ctx.reply("❌ انتهت الجلسة، ابدأ من جديد.");
+    if (!session || session.step !== "confirm") {
+      processingConfirm.delete(user.id);
+      return ctx.reply("❌ انتهت الجلسة، ابدأ من جديد.");
+    }
 
     const levels = session.pendingLevels!;
 
@@ -191,6 +202,7 @@ export function registerUserHandlers(bot: Bot) {
     const result = await deductBalance(user.id, orderPrice, `طلب ${session.gameName}`);
     if (!result.ok) {
       delete sessions[user.id];
+      processingConfirm.delete(user.id);
       return ctx.reply(
         `❌ <b>رصيدك غير كافٍ!</b>\n\n💳 اشحن رصيدك وحاول مجدداً.`,
         { parse_mode: "HTML", reply_markup: new InlineKeyboard().text("💳 شحن رصيد", "show_topup") }
@@ -205,6 +217,7 @@ export function registerUserHandlers(bot: Bot) {
       // رجّع الرصيد
       await deductBalance(user.id, -orderPrice, "استرداد — فشل إنشاء الطلب");
       delete sessions[user.id];
+      processingConfirm.delete(user.id);
       console.error("createOrder failed:", e);
       return ctx.reply(
         `❌ حدث خطأ أثناء إنشاء الطلب، تم استرداد رصيدك.\nحاول مجدداً أو تواصل مع الدعم.`,
@@ -213,6 +226,7 @@ export function registerUserHandlers(bot: Bot) {
     }
 
     delete sessions[user.id];
+    processingConfirm.delete(user.id);
 
     // إشعار الأدمن بطلب جديد
     await notifyAdmin(
