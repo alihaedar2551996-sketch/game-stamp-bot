@@ -630,7 +630,7 @@ async function sendMainMenu(ctx: any, firstName: string) {
     .row()
     .text("📖 تعليمات", "help_menu").text("ℹ️ حول", "about_bot")
     .row()
-    .url("🆘 الدعم", `https://t.me/${SUPPORT_USERNAME}`);
+    .url("📢 قناتنا", "https://t.me/autogamerx").url("🆘 الدعم", `https://t.me/${SUPPORT_USERNAME}`);
   await ctx.reply(
     `🎮 <b>AutoGamer Bot</b>\n\n` +
     `البوت المتخصص في ختم جميع مراحل ومستويات ألعاب منصة Appsflyer ios حصرياً!\n\n` +
