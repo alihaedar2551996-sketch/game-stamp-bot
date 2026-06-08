@@ -1,5 +1,5 @@
 import { Bot, InlineKeyboard } from "grammy";
-import { upsertUser, getAllGames, getUserBalance, createOrder, getOrdersByUser, createTopupRequest } from "../db/client";
+import { upsertUser, getAllGames, getUserBalance, createOrder, getOrdersByUser, getOrderLevels, createTopupRequest } from "../db/client";
 
 const SUPPORT_USERNAME = "AutoGamers";
 const SYRIATEL_NUMBER = "35181383";
@@ -60,15 +60,39 @@ export function registerUserHandlers(bot: Bot) {
     await ctx.answerCallbackQuery();
     const user = ctx.from!;
     const orders = await getOrdersByUser(user.id);
+
     if (!orders.length) {
-      return ctx.reply("📋 ما عندك طلبات بعد.", { reply_markup: new InlineKeyboard().text("🎮 اطلب الآن", "show_games") });
+      return ctx.reply("📋 ما عندك طلبات بعد.", {
+        reply_markup: new InlineKeyboard().text("🎮 اطلب الآن", "show_games"),
+      });
     }
-    let text = `📋 *طلباتك:*\n\n`;
+
+    // عرض كل لعبة لحالها
     for (const o of orders) {
-      const icon = o.status === "completed" ? "✅" : "⏳";
-      text += `${o.emoji} *${o.game_name}* ${icon}\n🎯 الليفلات: ${o.levels}\n\n`;
+      const levels = String(o.levels).split(",").map(Number);
+      const completedIds = await getOrderLevels(Number(o.id));
+
+      let levelsText = "";
+      for (const l of completedIds) {
+        const stamped = Number(l.stamped) === 1;
+        levelsText += stamped
+          ? `🟢 ليفل ${l.level}  `
+          : `🟡 ليفل ${l.level}  `;
+      }
+
+      const doneCount = completedIds.filter(l => Number(l.stamped) === 1).length;
+      const totalCount = completedIds.length;
+      const statusIcon = o.status === "completed" ? "✅" : "⏳";
+
+      const keyboard = new InlineKeyboard().text("🔙 رجوع", "back_main");
+
+      await ctx.reply(
+        `${o.emoji} *${o.game_name}* ${statusIcon}\n` +
+        `📊 ${doneCount}/${totalCount} مكتمل\n\n` +
+        `${levelsText.trim()}`,
+        { parse_mode: "Markdown", reply_markup: keyboard }
+      );
     }
-    await ctx.reply(text, { parse_mode: "Markdown", reply_markup: new InlineKeyboard().text("🔙 رجوع", "back_main") });
   });
 
   // ── رصيدي ───────────────────────────────────────────────
