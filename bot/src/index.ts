@@ -18,7 +18,7 @@ if (WEBHOOK_URL && !WEBHOOK_SECRET) throw new Error("WEBHOOK_SECRET is required 
 
 export const bot = new Bot(BOT_TOKEN);
 registerUserHandlers(bot);
-bot.catch((err) => console.error("Bot error:", err.message, err.error));
+// bot.catch moved to logger section below
 
 const app = new Hono();
 app.use("*", async (c, next) => {
@@ -200,32 +200,86 @@ app.post("/api/broadcast", async (c) => {
 
 let ready = false;
 
-// healthcheck يرد فوراً حتى لو الـ init لسا ما خلص
-app.get("/health", (c) => c.json({ status: "ok", ready }));
+// ── Logger ─────────────────────────────────────────────────────────────────
+function log(level: "INFO" | "WARN" | "ERROR", scope: string, msg: string, data?: unknown) {
+  const ts = new Date().toISOString();
+  const line = `[${ts}] [${level}] [${scope}] ${msg}`;
+  if (data !== undefined) {
+    const extra = data instanceof Error ? data.stack ?? data.message : JSON.stringify(data);
+    level === "ERROR" ? console.error(line, extra) : console.log(line, extra);
+  } else {
+    level === "ERROR" ? console.error(line) : console.log(line);
+  }
+}
+
+// ── Healthcheck ─────────────────────────────────────────────────────────────
+app.get("/health", (c) => {
+  log("INFO", "HEALTH", `ping — ready=${ready}`);
+  return c.json({ status: "ok", ready });
+});
+
+// ── Request Logger Middleware ────────────────────────────────────────────────
+app.use("/api/*", async (c, next) => {
+  const start = Date.now();
+  await next();
+  const ms = Date.now() - start;
+  log("INFO", "HTTP", `${c.req.method} ${c.req.path} → ${c.res.status} (${ms}ms)`);
+});
+
+// ── Webhook Logger ───────────────────────────────────────────────────────────
+bot.use(async (ctx, next) => {
+  const type = ctx.updateType ?? "unknown";
+  const userId = ctx.from?.id;
+  const username = ctx.from?.username ? `@${ctx.from.username}` : ctx.from?.first_name ?? "?";
+  log("INFO", "BOT", `update=${type} user=${userId} (${username})`);
+  try {
+    await next();
+  } catch (e) {
+    log("ERROR", "BOT", `handler error for update=${type} user=${userId}`, e);
+    throw e;
+  }
+});
+
+bot.catch((err) => {
+  log("ERROR", "BOT", "Unhandled bot error", err.error ?? err.message);
+});
 
 async function main() {
-  // ابدأ السيرفر أول شي — Railway يشوفه فوراً
-  Bun.serve({ port: PORT, fetch: app.fetch });
-  console.log(`🚀 Server on port ${PORT}`);
+  log("INFO", "STARTUP", `Starting AutoGamer Bot...`);
+  log("INFO", "STARTUP", `PORT=${PORT} | WEBHOOK_URL=${WEBHOOK_URL ?? "(polling mode)"}`);
 
-  // الـ init في الخلفية — ما يبلوك الـ healthcheck
+  Bun.serve({ port: PORT, fetch: app.fetch });
+  log("INFO", "STARTUP", `✅ HTTP server listening on port ${PORT}`);
+
   (async () => {
     try {
+      log("INFO", "INIT", "Initializing database...");
       await initDB();
+      log("INFO", "INIT", "✅ DB initialized");
+
       await initTopupTable();
+      log("INFO", "INIT", "✅ Topup & referral tables ready");
+
       await seedGames();
+      log("INFO", "INIT", "✅ Games seeded");
+
       if (WEBHOOK_URL) {
-        await bot.api.setWebhook(`${WEBHOOK_URL}/webhook/${WEBHOOK_SECRET}`);
-        console.log(`✅ Webhook set`);
+        const webhookEndpoint = `${WEBHOOK_URL}/webhook/${WEBHOOK_SECRET}`;
+        await bot.api.setWebhook(webhookEndpoint);
+        const info = await bot.api.getWebhookInfo();
+        log("INFO", "WEBHOOK", `✅ Webhook set → ${webhookEndpoint}`);
+        log("INFO", "WEBHOOK", `pending_updates=${info.pending_update_count} | last_error=${info.last_error_message ?? "none"}`);
       } else {
-        bot.start({ onStart: () => console.log("🤖 Bot polling started") });
+        log("INFO", "POLLING", "No WEBHOOK_URL — starting long polling...");
+        bot.start({ onStart: () => log("INFO", "POLLING", "✅ Bot polling started") });
       }
+
       ready = true;
-      console.log("✅ Bot ready");
+      log("INFO", "STARTUP", "✅ Bot fully ready");
     } catch (e) {
-      console.error("❌ Init failed:", e);
+      log("ERROR", "INIT", "❌ Init failed — bot will NOT respond to messages", e);
     }
   })();
 }
 
-main().catch(console.error);
+main().catch((e) => log("ERROR", "MAIN", "Fatal error in main()", e));
