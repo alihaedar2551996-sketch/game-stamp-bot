@@ -50,6 +50,7 @@ if (WEBHOOK_URL) {
 import {
   getDashboardStats, getAllUsersWithBalance, getAllOrders,
   getOrderLevels, stampLevel, getOrder, addBalance, getUserBalance,
+  getAllTopupRequests, approveTopup, rejectTopup, initTopupTable,
 } from "./db/client";
 
 app.get("/api/stats",  async (c) => { if (!auth(c)) return c.json({ error: "Unauthorized" }, 401); return c.json(await getDashboardStats()); });
@@ -64,6 +65,38 @@ app.get("/api/users/:tgId/balance", async (c) => {
   return c.json({ balance: await getUserBalance(Number(c.req.param("tgId"))) });
 });
 
+// طلبات الشحن
+app.get("/api/topups", async (c) => {
+  if (!auth(c)) return c.json({ error: "Unauthorized" }, 401);
+  return c.json(await getAllTopupRequests());
+});
+
+app.post("/api/topups/:id/approve", async (c) => {
+  if (!auth(c)) return c.json({ error: "Unauthorized" }, 401);
+  const { amount } = await c.req.json();
+  if (!amount) return c.json({ error: "amount required" }, 400);
+  const result = await approveTopup(Number(c.req.param("id")), Number(amount));
+  try {
+    await bot.api.sendMessage(result.userId,
+      `✅ *تم قبول طلب الشحن!*\n\n💰 تم إضافة *${Number(amount).toFixed(2)} دولار* لرصيدك\n💵 رصيدك الحالي: *${result.newBalance.toFixed(2)} دولار*`,
+      { parse_mode: "Markdown" }
+    );
+  } catch(e) { console.error(e); }
+  return c.json({ success: true, newBalance: result.newBalance });
+});
+
+app.post("/api/topups/:id/reject", async (c) => {
+  if (!auth(c)) return c.json({ error: "Unauthorized" }, 401);
+  const userId = await rejectTopup(Number(c.req.param("id")));
+  try {
+    await bot.api.sendMessage(userId,
+      `❌ *تم رفض طلب الشحن*\n\nتواصل مع الدعم لمزيد من المعلومات.`,
+      { parse_mode: "Markdown" }
+    );
+  } catch(e) { console.error(e); }
+  return c.json({ success: true });
+});
+
 // ختم ليفل
 app.post("/api/stamp-level", async (c) => {
   if (!auth(c)) return c.json({ error: "Unauthorized" }, 401);
@@ -75,30 +108,23 @@ app.post("/api/stamp-level", async (c) => {
   if (order) {
     try {
       const allLevels = String(order.levels).split(",").map(Number);
-      const isLast = order.status === "completed";
-      if (isLast) {
+      if (order.status === "completed") {
         await bot.api.sendMessage(Number(order.user_tg_id),
-          `🎉 *مبروك! اكتمل طلبك بالكامل!*\n\n` +
-          `${order.emoji} *${order.game_name}*\n` +
-          `✅ تم ختم جميع الليفلات: ${allLevels.join(", ")}\n\n` +
-          `أنت بطل حقيقي! 🏆`,
+          `🎉 *مبروك! اكتمل طلبك بالكامل!*\n\n${order.emoji} *${order.game_name}*\n✅ تم ختم جميع الليفلات: ${allLevels.join(", ")}\n\nأنت بطل حقيقي! 🏆`,
           { parse_mode: "Markdown" }
         );
       } else {
         await bot.api.sendMessage(Number(order.user_tg_id),
-          `✅ *تم ختم ليفل جديد!*\n\n` +
-          `${order.emoji} *${order.game_name}*\n` +
-          `🎯 الليفل *${level}* تم ختمه بنجاح!\n\n` +
-          `استمر! 💪`,
+          `✅ *تم ختم ليفل جديد!*\n\n${order.emoji} *${order.game_name}*\n🎯 الليفل *${level}* تم ختمه بنجاح!\n\nاستمر! 💪`,
           { parse_mode: "Markdown" }
         );
       }
-    } catch (e) { console.error("Notify error:", e); }
+    } catch(e) { console.error("Notify error:", e); }
   }
   return c.json({ success: true, orderComplete: order?.status === "completed" });
 });
 
-// إضافة رصيد
+// إضافة رصيد يدوي
 app.post("/api/balance", async (c) => {
   if (!auth(c)) return c.json({ error: "Unauthorized" }, 401);
   const { tgId, amount, note } = await c.req.json();
@@ -110,14 +136,25 @@ app.post("/api/balance", async (c) => {
       `💵 *تم تحديث رصيدك!*\n\n${sign}${amount.toFixed(2)} دولار\n💰 رصيدك الحالي: *${newBalance.toFixed(2)} دولار*` + (note ? `\n📝 ${note}` : ""),
       { parse_mode: "Markdown" }
     );
-  } catch (e) { console.error("Notify balance error:", e); }
+  } catch(e) { console.error(e); }
   return c.json({ success: true, newBalance });
+});
+
+// صورة الإثبات
+app.get("/api/photo/:fileId", async (c) => {
+  if (!auth(c)) return c.json({ error: "Unauthorized" }, 401);
+  try {
+    const file = await bot.api.getFile(c.req.param("fileId"));
+    const url = `https://api.telegram.org/file/bot${BOT_TOKEN}/${file.file_path}`;
+    return c.redirect(url);
+  } catch(e) { return c.json({ error: "File not found" }, 404); }
 });
 
 async function main() {
   Bun.serve({ port: PORT, fetch: app.fetch });
   console.log(`🚀 Server on port ${PORT}`);
   await initDB();
+  await initTopupTable();
   await seedGames();
   if (WEBHOOK_URL) {
     await bot.api.setWebhook(`${WEBHOOK_URL}/webhook/${WEBHOOK_SECRET}`);

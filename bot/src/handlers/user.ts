@@ -1,11 +1,10 @@
 import { Bot, InlineKeyboard } from "grammy";
-import { upsertUser, getAllGames, getUserBalance, createOrder, getOrdersByUser } from "../db/client";
+import { upsertUser, getAllGames, getUserBalance, createOrder, getOrdersByUser, createTopupRequest } from "../db/client";
 
 const SUPPORT_USERNAME = "AutoGamers";
 const SYRIATEL_NUMBER = "35181383";
 const USDT_ADDRESS = "0x77cf846eccb684f524b6a8d357e4dee6ded83a78";
 
-// حفظ مؤقت لبيانات الطلب (في الذاكرة — كافي لبوت صغير)
 const sessions: Record<number, {
   step: string;
   gameId?: number;
@@ -15,6 +14,8 @@ const sessions: Record<number, {
   idfv?: string;
   iosVersion?: string;
   appsflyerId?: string;
+  topupMethod?: string;
+  topupAmount?: string;
 }> = {};
 
 export function registerUserHandlers(bot: Bot) {
@@ -27,7 +28,7 @@ export function registerUserHandlers(bot: Bot) {
     await sendMainMenu(ctx, user.first_name);
   });
 
-  // callback — ألعابي: قائمة الألعاب
+  // ── ألعابي ──────────────────────────────────────────────
   bot.callbackQuery("show_games", async (ctx) => {
     await ctx.answerCallbackQuery();
     const games = await getAllGames();
@@ -37,13 +38,9 @@ export function registerUserHandlers(bot: Bot) {
       if (i % 2 === 1) keyboard.row();
     });
     keyboard.row().text("🔙 رجوع", "back_main");
-    await ctx.reply(`🎮 *اختر اللعبة اللي بدك تختمها:*`, {
-      parse_mode: "Markdown",
-      reply_markup: keyboard,
-    });
+    await ctx.reply(`🎮 *اختر اللعبة اللي بدك تختمها:*`, { parse_mode: "Markdown", reply_markup: keyboard });
   });
 
-  // callback — اختيار لعبة → بدء الطلب
   bot.callbackQuery(/^select_game_(\d+)$/, async (ctx) => {
     await ctx.answerCallbackQuery();
     const user = ctx.from!;
@@ -51,98 +48,82 @@ export function registerUserHandlers(bot: Bot) {
     const games = await getAllGames();
     const game = games.find(g => Number(g.id) === gameId);
     if (!game) return ctx.reply("❌ لعبة غير موجودة.");
-
     sessions[user.id] = { step: "idfa", gameId, gameName: String(game.name), gameEmoji: String(game.emoji) };
-
     await ctx.reply(
-      `${game.emoji} *${game.name}*\n\n` +
-      `ممتاز! هلق محتاج منك بعض المعلومات 📋\n\n` +
-      `*الخطوة 1/4*\n` +
-      `أرسل لي الـ *IDFA* الخاص بجهازك:`,
+      `${game.emoji} *${game.name}*\n\n📋 محتاج منك بعض المعلومات\n\n*الخطوة 1/4*\nأرسل لي الـ *IDFA*:`,
       { parse_mode: "Markdown" }
     );
   });
 
-  // callback — طلباتي
+  // ── طلباتي ──────────────────────────────────────────────
   bot.callbackQuery("show_orders", async (ctx) => {
     await ctx.answerCallbackQuery();
     const user = ctx.from!;
     const orders = await getOrdersByUser(user.id);
-
     if (!orders.length) {
-      const keyboard = new InlineKeyboard().text("🎮 اطلب الآن", "show_games");
-      return ctx.reply("📋 ما عندك طلبات بعد.", { reply_markup: keyboard });
+      return ctx.reply("📋 ما عندك طلبات بعد.", { reply_markup: new InlineKeyboard().text("🎮 اطلب الآن", "show_games") });
     }
-
     let text = `📋 *طلباتك:*\n\n`;
     for (const o of orders) {
-      const statusIcon = o.status === "completed" ? "✅" : o.status === "pending" ? "⏳" : "🔄";
-      const levels = String(o.levels).split(",").join(", ");
-      text += `${o.emoji} *${o.game_name}*\n`;
-      text += `${statusIcon} الحالة: ${o.status === "completed" ? "مكتمل" : "قيد التنفيذ"}\n`;
-      text += `🎯 الليفلات: ${levels}\n\n`;
+      const icon = o.status === "completed" ? "✅" : "⏳";
+      text += `${o.emoji} *${o.game_name}* ${icon}\n🎯 الليفلات: ${o.levels}\n\n`;
     }
-
-    const keyboard = new InlineKeyboard().text("🔙 رجوع", "back_main");
-    await ctx.reply(text, { parse_mode: "Markdown", reply_markup: keyboard });
+    await ctx.reply(text, { parse_mode: "Markdown", reply_markup: new InlineKeyboard().text("🔙 رجوع", "back_main") });
   });
 
-  // callback — رصيدي
+  // ── رصيدي ───────────────────────────────────────────────
   bot.callbackQuery("show_balance", async (ctx) => {
     await ctx.answerCallbackQuery();
     const user = ctx.from!;
     const balance = await getUserBalance(user.id);
-    const keyboard = new InlineKeyboard()
-      .text("💳 شحن رصيد", "show_topup")
-      .text("🔙 رجوع", "back_main");
     await ctx.reply(
       `💵 *رصيدك الحالي*\n\n👤 ${user.first_name}\n💰 *${balance.toFixed(2)} دولار*`,
-      { parse_mode: "Markdown", reply_markup: keyboard }
+      { parse_mode: "Markdown", reply_markup: new InlineKeyboard().text("💳 شحن رصيد", "show_topup").text("🔙 رجوع", "back_main") }
     );
   });
 
-  // callback — شحن رصيد
+  // ── شحن رصيد: اختيار الطريقة ────────────────────────────
   bot.callbackQuery("show_topup", async (ctx) => {
     await ctx.answerCallbackQuery();
-    const keyboard = new InlineKeyboard()
-      .text("📱 سيريتيل كاش", "topup_syriatel")
-      .row()
-      .text("🔐 USDT (BEP20)", "topup_usdt")
-      .row()
-      .text("🔙 رجوع", "back_main");
     await ctx.reply(`💳 *شحن الرصيد*\n\nاختر طريقة الدفع:`, {
-      parse_mode: "Markdown", reply_markup: keyboard,
+      parse_mode: "Markdown",
+      reply_markup: new InlineKeyboard()
+        .text("📱 سيريتيل كاش", "topup_syriatel")
+        .row()
+        .text("🔐 USDT (BEP20)", "topup_usdt")
+        .row()
+        .text("🔙 رجوع", "back_main"),
     });
   });
 
+  // سيريتيل كاش — عرض المعلومات وطلب المبلغ
   bot.callbackQuery("topup_syriatel", async (ctx) => {
     await ctx.answerCallbackQuery();
-    const keyboard = new InlineKeyboard().url("🆘 تواصل مع الدعم", `https://t.me/${SUPPORT_USERNAME}`);
+    const user = ctx.from!;
+    sessions[user.id] = { step: "topup_amount", topupMethod: "syriatel" };
     await ctx.reply(
       `📱 *الشحن عبر سيريتيل كاش*\n\n` +
-      `1️⃣ افتح تطبيق سيريتيل كاش\n` +
-      `2️⃣ أرسل المبلغ إلى:\n\n\`${SYRIATEL_NUMBER}\`\n\n` +
-      `3️⃣ تواصل مع الدعم وأرسل:\n• المبلغ\n• رقمك\n• لقطة شاشة\n\n` +
-      `⚡ سيتم إضافة رصيدك خلال دقائق!`,
-      { parse_mode: "Markdown", reply_markup: keyboard }
+      `حوّل المبلغ إلى:\n\`${SYRIATEL_NUMBER}\`\n\n` +
+      `بعد التحويل أرسل *المبلغ الذي حوّلته* (مثال: 5):`,
+      { parse_mode: "Markdown" }
     );
   });
 
+  // USDT — عرض المعلومات وطلب المبلغ
   bot.callbackQuery("topup_usdt", async (ctx) => {
     await ctx.answerCallbackQuery();
-    const keyboard = new InlineKeyboard().url("🆘 تواصل مع الدعم", `https://t.me/${SUPPORT_USERNAME}`);
+    const user = ctx.from!;
+    sessions[user.id] = { step: "topup_amount", topupMethod: "usdt" };
     await ctx.reply(
       `🔐 *الشحن عبر USDT (BEP20)*\n\n` +
-      `1️⃣ افتح محفظتك\n` +
-      `2️⃣ أرسل USDT على شبكة *BEP20* إلى:\n\n\`${USDT_ADDRESS}\`\n\n` +
-      `⚠️ *BEP20 فقط — أي شبكة ثانية = ضياع الأموال!*\n\n` +
-      `3️⃣ تواصل مع الدعم وأرسل:\n• المبلغ\n• رقم التحويل (TXID)\n\n` +
-      `⚡ سيتم إضافة رصيدك بعد التأكيد!`,
-      { parse_mode: "Markdown", reply_markup: keyboard }
+      `أرسل إلى:\n\`${USDT_ADDRESS}\`\n\n` +
+      `⚠️ *BEP20 فقط!*\n\n` +
+      `بعد التحويل أرسل *المبلغ الذي حوّلته* (مثال: 10):`,
+      { parse_mode: "Markdown" }
     );
   });
 
-  // callback — رجوع للقائمة الرئيسية
+  // رجوع
   bot.callbackQuery("back_main", async (ctx) => {
     await ctx.answerCallbackQuery();
     const user = ctx.from!;
@@ -153,118 +134,109 @@ export function registerUserHandlers(bot: Bot) {
   // /profile
   bot.command("profile", async (ctx) => {
     const user = ctx.from!;
-    const [balance, orders] = await Promise.all([
-      getUserBalance(user.id),
-      getOrdersByUser(user.id),
-    ]);
+    const [balance, orders] = await Promise.all([getUserBalance(user.id), getOrdersByUser(user.id)]);
     const completed = orders.filter(o => o.status === "completed").length;
-    const keyboard = new InlineKeyboard()
-      .text("💳 شحن رصيد", "show_topup")
-      .url("🆘 الدعم", `https://t.me/${SUPPORT_USERNAME}`);
     await ctx.reply(
-      `👤 *ملفك الشخصي*\n\n` +
-      `📋 الطلبات المكتملة: ${completed}/${orders.length}\n` +
-      `💵 الرصيد: *${balance.toFixed(2)} دولار*`,
-      { parse_mode: "Markdown", reply_markup: keyboard }
+      `👤 *ملفك الشخصي*\n\n📋 الطلبات المكتملة: ${completed}/${orders.length}\n💵 الرصيد: *${balance.toFixed(2)} دولار*`,
+      { parse_mode: "Markdown", reply_markup: new InlineKeyboard().text("💳 شحن رصيد", "show_topup").url("🆘 الدعم", `https://t.me/${SUPPORT_USERNAME}`) }
     );
   });
 
-  // ── استقبال الرسائل النصية لجمع بيانات الطلب ──
+  // ── استقبال الرسائل النصية ───────────────────────────────
   bot.on("message:text", async (ctx) => {
     const user = ctx.from!;
     const session = sessions[user.id];
     if (!session) return;
-
     const text = ctx.message.text.trim();
 
+    // فلو الطلب
     if (session.step === "idfa") {
-      session.idfa = text;
-      session.step = "idfv";
-      await ctx.reply(
-        `✅ IDFA تم استلامه!\n\n*الخطوة 2/4*\nأرسل لي الـ *IDFV*:`,
+      session.idfa = text; session.step = "idfv";
+      return ctx.reply(`✅ IDFA تم!\n\n*الخطوة 2/4*\nأرسل الـ *IDFV*:`, { parse_mode: "Markdown" });
+    }
+    if (session.step === "idfv") {
+      session.idfv = text; session.step = "ios";
+      return ctx.reply(`✅ IDFV تم!\n\n*الخطوة 3/4*\nأرسل *إصدار iOS* (مثال: 18.2):`, { parse_mode: "Markdown" });
+    }
+    if (session.step === "ios") {
+      session.iosVersion = text; session.step = "appsflyer";
+      return ctx.reply(`✅ iOS تم!\n\n*الخطوة 4/4*\nأرسل الـ *AppsFlyer ID*:`, { parse_mode: "Markdown" });
+    }
+    if (session.step === "appsflyer") {
+      session.appsflyerId = text; session.step = "levels";
+      return ctx.reply(
+        `✅ AppsFlyer ID تم!\n\n🎯 *الخطوة الأخيرة!*\nأرسل أرقام الليفلات مفصولة بفواصل\n*(مثال: 1, 5, 10, 15, 20)*`,
         { parse_mode: "Markdown" }
-      );
-
-    } else if (session.step === "idfv") {
-      session.idfv = text;
-      session.step = "ios";
-      await ctx.reply(
-        `✅ IDFV تم استلامه!\n\n*الخطوة 3/4*\nأرسل لي *إصدار iOS* (مثال: 18.2):`,
-        { parse_mode: "Markdown" }
-      );
-
-    } else if (session.step === "ios") {
-      session.iosVersion = text;
-      session.step = "appsflyer";
-      await ctx.reply(
-        `✅ iOS version تم استلامه!\n\n*الخطوة 4/4*\nأرسل لي الـ *AppsFlyer ID*:`,
-        { parse_mode: "Markdown" }
-      );
-
-    } else if (session.step === "appsflyer") {
-      session.appsflyerId = text;
-      session.step = "levels";
-      await ctx.reply(
-        `✅ AppsFlyer ID تم استلامه!\n\n` +
-        `🎯 *الخطوة الأخيرة!*\n` +
-        `أرسل لي أرقام الليفلات اللي بدك تختمها\n` +
-        `*(مفصولة بفواصل — مثال: 1, 5, 10, 15, 20)*`,
-        { parse_mode: "Markdown" }
-      );
-
-    } else if (session.step === "levels") {
-      // تحليل الليفلات
-      const levels = text.split(/[,،\s]+/)
-        .map(l => parseInt(l.trim()))
-        .filter(l => !isNaN(l) && l > 0);
-
-      if (!levels.length) {
-        return ctx.reply("❌ أرسل أرقام ليفلات صحيحة مفصولة بفواصل.\nمثال: 1, 5, 10, 15");
-      }
-
-      // إنشاء الطلب
-      const orderId = await createOrder(
-        user.id, session.gameId!,
-        session.idfa!, session.idfv!, session.iosVersion!, session.appsflyerId!,
-        levels
-      );
-
-      delete sessions[user.id];
-
-      const keyboard = new InlineKeyboard()
-        .text("📋 طلباتي", "show_orders")
-        .text("🏠 القائمة", "back_main");
-
-      await ctx.reply(
-        `🎉 *تم إرسال طلبك بنجاح!*\n\n` +
-        `${session.gameEmoji} *${session.gameName}*\n` +
-        `🎯 الليفلات: ${levels.join(", ")}\n` +
-        `🔢 رقم الطلب: #${orderId}\n\n` +
-        `⏳ سيتم البدء بتختيم مراحلك قريباً!\n` +
-        `ستصلك إشعارات فورية مع كل ليفل ✅`,
-        { parse_mode: "Markdown", reply_markup: keyboard }
       );
     }
+    if (session.step === "levels") {
+      const levels = text.split(/[,،\s]+/).map(l => parseInt(l.trim())).filter(l => !isNaN(l) && l > 0);
+      if (!levels.length) return ctx.reply("❌ أرسل أرقام صحيحة مثال: 1, 5, 10, 15");
+      const orderId = await createOrder(user.id, session.gameId!, session.idfa!, session.idfv!, session.iosVersion!, session.appsflyerId!, levels);
+      delete sessions[user.id];
+      return ctx.reply(
+        `🎉 *تم إرسال طلبك!*\n\n${session.gameEmoji} *${session.gameName}*\n🎯 الليفلات: ${levels.join(", ")}\n🔢 رقم الطلب: #${orderId}\n\n⏳ ستصلك إشعارات مع كل ليفل ✅`,
+        { parse_mode: "Markdown", reply_markup: new InlineKeyboard().text("📋 طلباتي", "show_orders").text("🏠 القائمة", "back_main") }
+      );
+    }
+
+    // فلو الشحن — المبلغ
+    if (session.step === "topup_amount") {
+      const amount = text.replace(/[^\d.]/g, "");
+      if (!amount || isNaN(Number(amount))) return ctx.reply("❌ أرسل رقم صحيح مثال: 10");
+      session.topupAmount = amount;
+      session.step = "topup_proof";
+      return ctx.reply(
+        `💰 المبلغ: *${amount}$*\n\n📸 الآن أرسل *رقم العملية* أو *صورة التحويل*:`,
+        { parse_mode: "Markdown" }
+      );
+    }
+  });
+
+  // ── استقبال الصور (إثبات الشحن) ─────────────────────────
+  bot.on("message:photo", async (ctx) => {
+    const user = ctx.from!;
+    const session = sessions[user.id];
+    if (!session || session.step !== "topup_proof") return;
+
+    const photoId = ctx.message.photo[ctx.message.photo.length - 1].file_id;
+    const reqId = await createTopupRequest(user.id, session.topupMethod!, session.topupAmount!, null, photoId);
+    delete sessions[user.id];
+
+    await ctx.reply(
+      `✅ *تم استلام طلب الشحن!*\n\n💰 المبلغ: *${session.topupAmount}$*\n🔢 رقم الطلب: #${reqId}\n\n⏳ سيتم مراجعته وإضافة رصيدك قريباً!`,
+      { parse_mode: "Markdown", reply_markup: new InlineKeyboard().text("🏠 القائمة", "back_main") }
+    );
+  });
+
+  // استقبال نص كـ proof (رقم العملية)
+  bot.on("message:text", async (ctx) => {
+    const user = ctx.from!;
+    const session = sessions[user.id];
+    if (!session || session.step !== "topup_proof") return;
+
+    const txId = ctx.message.text.trim();
+    const reqId = await createTopupRequest(user.id, session.topupMethod!, session.topupAmount!, txId, null);
+    delete sessions[user.id];
+
+    await ctx.reply(
+      `✅ *تم استلام طلب الشحن!*\n\n💰 المبلغ: *${session.topupAmount}$*\n🔢 رقم العملية: \`${txId}\`\n📋 رقم الطلب: #${reqId}\n\n⏳ سيتم مراجعته وإضافة رصيدك قريباً!`,
+      { parse_mode: "Markdown", reply_markup: new InlineKeyboard().text("🏠 القائمة", "back_main") }
+    );
   });
 }
 
 async function sendMainMenu(ctx: any, firstName: string) {
   const keyboard = new InlineKeyboard()
-    .text("🎮 اطلب لعبة", "show_games")
-    .text("📋 طلباتي", "show_orders")
+    .text("🎮 اطلب لعبة", "show_games").text("📋 طلباتي", "show_orders")
     .row()
-    .text("💵 رصيدي", "show_balance")
-    .text("💳 شحن رصيد", "show_topup")
+    .text("💵 رصيدي", "show_balance").text("💳 شحن رصيد", "show_topup")
     .row()
     .url("🆘 الدعم", `https://t.me/${SUPPORT_USERNAME}`);
-
   await ctx.reply(
     `💀 الـمُستوى الأخير: نِهاية اللعبة تبدأ من هُنا!\n` +
     `أهلاً بك ${firstName} في AutoGamer.. المَقر السري لتجهيز الألعاب وسحق المراحل.\n\n` +
-    `مع AutoGamer نحن هنا لنختصر عليك الطريق:\n` +
-    `• أعلى كفاءة وسرعة.\n` +
-    `• 🏆 قفل ملفات المراحل.\n\n` +
-    `الهندسة والتعب علينا.. والسيطرة إلك! 👑`,
+    `مع AutoGamer نحن هنا لنختصر عليك الطريق:\n• أعلى كفاءة وسرعة.\n• 🏆 قفل ملفات المراحل.\n\nالهندسة والتعب علينا.. والسيطرة إلك! 👑`,
     { parse_mode: "Markdown", reply_markup: keyboard }
   );
 }

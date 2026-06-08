@@ -92,6 +92,7 @@
       <button class="nav-item active" onclick="showPage('overview',this)">📊 <span>نظرة عامة</span></button>
       <button class="nav-item" onclick="showPage('orders',this)">📋 <span>الطلبات</span></button>
       <button class="nav-item" onclick="showPage('users',this)">👥 <span>المستخدمون</span></button>
+      <button class="nav-item" onclick="showPage('topups',this)">💳 <span>طلبات الشحن</span></button>
       <button class="nav-item" onclick="showPage('balance',this)">💵 <span>إضافة رصيد</span></button>
       <div class="sidebar-bottom">
         <button class="theme-toggle nav-item" style="width:100%;justify-content:flex-start;gap:var(--space-3)">
@@ -161,6 +162,16 @@
         </div>
       </div>
 
+
+      <!-- Topups -->
+      <div id="page-topups" class="page">
+        <div class="page-header">
+          <div class="page-title">💳 طلبات الشحن</div>
+          <button class="btn btn-secondary btn-sm" onclick="loadTopups()">🔄 تحديث</button>
+        </div>
+        <div class="table-card"><div id="topupsTable"><div class="loading">جاري التحميل...</div></div></div>
+      </div>
+
     </main>
   </div>
 </div>
@@ -212,6 +223,7 @@ function showPage(name,btn){
   if(name==="orders")loadOrders();
   if(name==="users")loadUsers();
   if(name==="balance")loadBalanceForm();
+  if(name==="topups")loadTopups();
 }
 function initDashboard(){loadOverview();}
 
@@ -377,6 +389,44 @@ async function doAddBalance(){
   const res=await apiFetch("/api/balance",{method:"POST",body:JSON.stringify({tgId,amount,note:note||undefined})});
   if(res.error)showToast(`❌ ${res.error}`);
   else{showToast(`✅ تم! الرصيد الجديد: $${res.newBalance.toFixed(2)}`);document.getElementById("balanceAmount").value="";document.getElementById("balanceNote").value="";loadBalanceForm();}
+}
+
+
+async function loadTopups(){
+  const topups=await apiFetch("/api/topups");
+  if(!topups||!topups.length){document.getElementById("topupsTable").innerHTML=`<div class="loading">لا توجد طلبات شحن</div>`;return;}
+  document.getElementById("topupsTable").innerHTML=`<table><thead><tr><th>#</th><th>المستخدم</th><th>الطريقة</th><th>المبلغ</th><th>الإثبات</th><th>الحالة</th><th>التاريخ</th><th></th></tr></thead><tbody>
+    ${topups.map(t=>`<tr>
+      <td><code style="font-size:12px">#${t.id}</code></td>
+      <td><strong>${t.first_name}</strong>${t.username?` @${t.username}`:""}</td>
+      <td>${t.method==="syriatel"?"📱 سيريتيل":"🔐 USDT"}</td>
+      <td><strong>$${t.amount}</strong></td>
+      <td>${t.photo_id
+        ?`<a href="/api/photo/${t.photo_id}?key=${API_KEY}" target="_blank" class="btn btn-ghost btn-sm">📸 صورة</a>`
+        :t.tx_id?`<code style="font-size:11px">${t.tx_id}</code>`:"—"}</td>
+      <td><span class="status-badge status-${t.status==="approved"?"completed":t.status==="rejected"?"rejected":"pending"}">${t.status==="approved"?"✅ مقبول":t.status==="rejected"?"❌ مرفوض":"⏳ معلق"}</span></td>
+      <td style="color:var(--text-muted);font-size:12px">${fmt(t.created_at)}</td>
+      <td style="display:flex;gap:4px">${t.status==="pending"?`
+        <button class="btn btn-sm" style="background:#d1fae5;color:#065f46;border:none" onclick="approveTopup(${t.id},'${t.amount}')">✅ قبول</button>
+        <button class="btn btn-sm" style="background:#fee2e2;color:#991b1b;border:none" onclick="rejectTopup(${t.id})">❌ رفض</button>
+      `:"—"}</td>
+    </tr>`).join("")}
+  </tbody></table>`;
+}
+
+async function approveTopup(id, suggestedAmount){
+  const amount=prompt(`المبلغ بالدولار للإضافة:`, suggestedAmount||"");
+  if(!amount||isNaN(Number(amount)))return;
+  const res=await apiFetch(`/api/topups/${id}/approve`,{method:"POST",body:JSON.stringify({amount:Number(amount)})});
+  if(res.error)showToast(`❌ ${res.error}`);
+  else{showToast(`✅ تم القبول وإضافة $${Number(amount).toFixed(2)}`);loadTopups();}
+}
+
+async function rejectTopup(id){
+  if(!confirm("رفض طلب الشحن؟"))return;
+  const res=await apiFetch(`/api/topups/${id}/reject`,{method:"POST",body:JSON.stringify({})});
+  if(res.error)showToast(`❌ ${res.error}`);
+  else{showToast("❌ تم الرفض وإشعار المستخدم");loadTopups();}
 }
 
 function openModal(){document.getElementById("modal").classList.add("open");}

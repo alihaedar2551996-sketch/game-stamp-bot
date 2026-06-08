@@ -193,3 +193,54 @@ export async function getDashboardStats() {
     totalGames: Number(games.rows[0].cnt),
   };
 }
+
+// ── Topup Requests ─────────────────────────────────────────
+export async function initTopupTable() {
+  await db.execute(`CREATE TABLE IF NOT EXISTS topup_requests (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id     INTEGER NOT NULL REFERENCES users(tg_id),
+    method      TEXT NOT NULL,
+    amount      TEXT,
+    tx_id       TEXT,
+    photo_id    TEXT,
+    status      TEXT NOT NULL DEFAULT 'pending',
+    created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+  )`);
+}
+
+export async function createTopupRequest(
+  userId: number, method: string, amount: string, txId: string | null, photoId: string | null
+): Promise<number> {
+  const res = await db.execute({
+    sql: `INSERT INTO topup_requests (user_id, method, amount, tx_id, photo_id) VALUES (?, ?, ?, ?, ?)`,
+    args: [userId, method, amount, txId, photoId],
+  });
+  return Number(res.lastInsertRowid);
+}
+
+export async function getAllTopupRequests() {
+  const res = await db.execute(`
+    SELECT t.*, u.first_name, u.username, u.tg_id as user_tg_id
+    FROM topup_requests t
+    JOIN users u ON u.tg_id = t.user_id
+    ORDER BY t.created_at DESC
+  `);
+  return res.rows;
+}
+
+export async function approveTopup(id: number, amount: number): Promise<{ userId: number; newBalance: number }> {
+  const req = await db.execute({ sql: `SELECT * FROM topup_requests WHERE id = ?`, args: [id] });
+  const r = req.rows[0];
+  if (!r) throw new Error("Not found");
+  await db.execute({ sql: `UPDATE topup_requests SET status = 'approved' WHERE id = ?`, args: [id] });
+  const newBalance = await addBalance(Number(r.user_id), amount, `شحن رصيد #${id}`);
+  return { userId: Number(r.user_id), newBalance };
+}
+
+export async function rejectTopup(id: number): Promise<number> {
+  const req = await db.execute({ sql: `SELECT * FROM topup_requests WHERE id = ?`, args: [id] });
+  const r = req.rows[0];
+  if (!r) throw new Error("Not found");
+  await db.execute({ sql: `UPDATE topup_requests SET status = 'rejected' WHERE id = ?`, args: [id] });
+  return Number(r.user_id);
+}
