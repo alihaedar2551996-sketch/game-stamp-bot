@@ -149,6 +149,29 @@ app.get("/api/photo/:fileId", async (c) => {
   } catch(e) { return c.json({ error: "File not found" }, 404); }
 });
 
+// بث رسالة جماعية
+app.post("/api/broadcast", async (c) => {
+  if (!auth(c)) return c.json({ error: "Unauthorized" }, 401);
+  const { message } = await c.req.json();
+  if (!message || !message.trim()) return c.json({ error: "message required" }, 400);
+
+  const users = await getAllUsersWithBalance();
+  let sent = 0, failed = 0;
+
+  for (const user of users) {
+    try {
+      await bot.api.sendMessage(Number(user.tg_id), message, { parse_mode: "HTML" });
+      sent++;
+    } catch (e) {
+      failed++;
+    }
+    // تأخير بسيط لتجنب rate limit تيليغرام (30 رسالة/ثانية)
+    await new Promise(r => setTimeout(r, 40));
+  }
+
+  return c.json({ success: true, sent, failed, total: users.length });
+});
+
 let ready = false;
 
 // healthcheck يرد فوراً حتى لو الـ init لسا ما خلص

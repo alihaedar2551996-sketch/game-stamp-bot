@@ -332,6 +332,13 @@
       </button>
     </div>
 
+    <div class="nav-section">
+      <div class="nav-label">التواصل</div>
+      <button class="nav-item" onclick="showPage('broadcast',this)">
+        <span class="nav-icon">📣</span> رسالة جماعية
+      </button>
+    </div>
+
     <div class="sidebar-bottom">
       <button class="theme-toggle nav-item" style="justify-content:flex-start">
         <svg class="icon-sun" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M17.657 17.657l-.707-.707M6.343 6.343l-.707-.707M12 8a4 4 0 100 8 4 4 0 000-8z"/></svg>
@@ -444,6 +451,27 @@
         </div>
       </div>
 
+      <!-- Broadcast -->
+      <div id="page-broadcast" class="page">
+        <div class="form-card">
+          <div style="font-size:16px;font-weight:700;margin-bottom:var(--space-2)">📣 رسالة جماعية</div>
+          <div style="font-size:13px;color:var(--text-muted);margin-bottom:var(--space-5)">تُرسل لجميع المستخدمين المسجلين — تدعم HTML (<b>bold</b>, <i>italic</i>, <code>code</code>)</div>
+          <div class="form-group">
+            <label class="form-label">📝 نص الرسالة</label>
+            <textarea class="form-input" id="broadcastMsg" rows="6" placeholder="اكتب رسالتك هنا...
+مثال: 🎉 <b>خبر جديد!</b> تم إضافة ألعاب جديدة" style="resize:vertical;line-height:1.6"></textarea>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-4)">
+            <div style="font-size:12px;color:var(--text-muted)" id="broadcastCount">جاري تحميل عدد المستخدمين...</div>
+            <div style="font-size:12px;color:var(--text-muted)" id="charCount">0 حرف</div>
+          </div>
+          <button class="btn btn-primary" id="broadcastBtn" style="width:100%;padding:var(--space-3)" onclick="doBroadcast()">
+            📣 إرسال للجميع
+          </button>
+          <div id="broadcastResult" style="margin-top:var(--space-4);display:none"></div>
+        </div>
+      </div>
+
     </div><!-- /content -->
   </div><!-- /main -->
 </div><!-- /app -->
@@ -518,7 +546,7 @@ const saved = localStorage.getItem("admin_key");
 if(saved){ API_KEY=saved; apiFetch("/api/stats").then(d=>{ if(!d.error){ document.getElementById("loginScreen").style.display="none"; document.getElementById("dashboard").style.display="flex"; initDashboard(); } else { localStorage.removeItem("admin_key"); API_KEY=""; } }); }
 
 // ── Navigation ──
-const pageTitles = { overview:"نظرة عامة", orders:"الطلبات", topups:"طلبات الشحن", users:"المستخدمون", balance:"إضافة رصيد" };
+const pageTitles = { overview:"نظرة عامة", orders:"الطلبات", topups:"طلبات الشحن", users:"المستخدمون", balance:"إضافة رصيد", broadcast:"رسالة جماعية" };
 function showPage(name, btn){
   closeSidebar();
   document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));
@@ -531,6 +559,7 @@ function showPage(name, btn){
   if(name==="topups") loadTopups();
   if(name==="users") loadUsers();
   if(name==="balance") loadBalanceForm();
+  if(name==="broadcast") loadBroadcast();
 }
 function refreshPage(){
   const active = document.querySelector(".page.active");
@@ -751,6 +780,41 @@ function openModal(){document.getElementById("modal").classList.add("open");}
 function closeModal(){document.getElementById("modal").classList.remove("open");}
 function showToast(msg){const t=document.getElementById("toast");t.textContent=msg;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),3000);}
 function fmt(s){if(!s)return"—";return new Date(s).toLocaleString("ar-SY",{dateStyle:"short",timeStyle:"short"});}
+
+// ── Broadcast ──
+async function loadBroadcast(){
+  const users = await apiFetch("/api/users");
+  const count = (users||[]).length;
+  document.getElementById("broadcastCount").textContent = `👥 ${count} مستخدم سيستلم الرسالة`;
+  document.getElementById("broadcastMsg").addEventListener("input", function(){
+    document.getElementById("charCount").textContent = this.value.length + " حرف";
+  });
+}
+async function doBroadcast(){
+  const msg = document.getElementById("broadcastMsg").value.trim();
+  if(!msg){ showToast("⚠️ اكتب رسالة أولاً"); return; }
+  if(!confirm("إرسال الرسالة لجميع المستخدمين؟")) return;
+  const btn = document.getElementById("broadcastBtn");
+  btn.disabled = true;
+  btn.textContent = "⏳ جاري الإرسال...";
+  const result = document.getElementById("broadcastResult");
+  result.style.display = "none";
+  const res = await apiFetch("/api/broadcast", { method:"POST", body: JSON.stringify({ message: msg }) });
+  btn.disabled = false;
+  btn.textContent = "📣 إرسال للجميع";
+  if(res.error){ showToast(`❌ ${res.error}`); return; }
+  result.style.display = "block";
+  result.innerHTML = `
+    <div style="background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.2);border-radius:var(--radius-lg);padding:var(--space-4);font-size:13px">
+      ✅ <b>تم الإرسال!</b><br><br>
+      📤 أُرسلت إلى: <b>${res.sent}</b> مستخدم<br>
+      ❌ فشل: <b>${res.failed}</b><br>
+      👥 الإجمالي: <b>${res.total}</b>
+    </div>`;
+  showToast(`✅ أُرسلت لـ ${res.sent}/${res.total} مستخدم`);
+  document.getElementById("broadcastMsg").value = "";
+  document.getElementById("charCount").textContent = "0 حرف";
+}
 </script>
 </body>
 </html>
