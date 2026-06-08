@@ -37,7 +37,8 @@
   }
 
   // Initialize on load
-  setTheme(getPreferredTheme())
+  // Gaming dashboard — dark by default
+  setTheme(localStorage.getItem(STORAGE_KEY) || 'dark')
 
   // Listen for system preference changes
   window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
