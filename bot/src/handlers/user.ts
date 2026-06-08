@@ -63,7 +63,7 @@ export function registerUserHandlers(bot: Bot) {
 
   // ── ألعابي ──────────────────────────────────────────────
   bot.callbackQuery("show_games", async (ctx) => {
-    await ctx.answerCallbackQuery();
+    ctx.answerCallbackQuery().catch(() => {});
     if (!gamesCache.length) gamesCache = await getAllGames();
     const keyboard = new InlineKeyboard();
     gamesCache.forEach((g, i) => {
@@ -75,7 +75,7 @@ export function registerUserHandlers(bot: Bot) {
   });
 
   bot.callbackQuery(/^select_game_(\d+)$/, async (ctx) => {
-    await ctx.answerCallbackQuery();
+    ctx.answerCallbackQuery().catch(() => {});
     const user = ctx.from!;
     const gameId = Number(ctx.match[1]);
     const game = gamesCache.find(g => Number(g.id) === gameId);
@@ -89,7 +89,7 @@ export function registerUserHandlers(bot: Bot) {
 
   // ── طلباتي ──────────────────────────────────────────────
   bot.callbackQuery("show_orders", async (ctx) => {
-    await ctx.answerCallbackQuery();
+    ctx.answerCallbackQuery().catch(() => {});
     const user = ctx.from!;
     const orders = await getOrdersByUser(user.id);
 
@@ -133,7 +133,7 @@ export function registerUserHandlers(bot: Bot) {
 
   // ── رصيدي ───────────────────────────────────────────────
   bot.callbackQuery("show_balance", async (ctx) => {
-    await ctx.answerCallbackQuery();
+    ctx.answerCallbackQuery().catch(() => {});
     const user = ctx.from!;
     const balance = await getUserBalance(user.id);
     await ctx.reply(
@@ -144,7 +144,7 @@ export function registerUserHandlers(bot: Bot) {
 
   // ── شحن رصيد ────────────────────────────────────────────
   bot.callbackQuery("show_topup", async (ctx) => {
-    await ctx.answerCallbackQuery();
+    ctx.answerCallbackQuery().catch(() => {});
     await ctx.reply(`💳 <b>شحن الرصيد</b>\n\nاختر طريقة الدفع:`, {
       parse_mode: "HTML",
       reply_markup: new InlineKeyboard()
@@ -157,7 +157,7 @@ export function registerUserHandlers(bot: Bot) {
   });
 
   bot.callbackQuery("topup_syriatel", async (ctx) => {
-    await ctx.answerCallbackQuery();
+    ctx.answerCallbackQuery().catch(() => {});
     const user = ctx.from!;
     setSession(user.id, { step: "topup_amount", topupMethod: "syriatel" });
     await ctx.reply(
@@ -169,7 +169,7 @@ export function registerUserHandlers(bot: Bot) {
   });
 
   bot.callbackQuery("topup_usdt", async (ctx) => {
-    await ctx.answerCallbackQuery();
+    ctx.answerCallbackQuery().catch(() => {});
     const user = ctx.from!;
     setSession(user.id, { step: "topup_amount", topupMethod: "usdt" });
     await ctx.reply(
@@ -183,7 +183,7 @@ export function registerUserHandlers(bot: Bot) {
 
   // ── تأكيد الطلب ─────────────────────────────────────────
   bot.callbackQuery("confirm_order", async (ctx) => {
-    await ctx.answerCallbackQuery();
+    ctx.answerCallbackQuery().catch(() => {});
     const user = ctx.from!;
     const session = getSession(user.id);
     if (!session || session.step !== "confirm") return ctx.reply("❌ انتهت الجلسة، ابدأ من جديد.");
@@ -230,7 +230,7 @@ export function registerUserHandlers(bot: Bot) {
 
   // رجوع
   bot.callbackQuery("back_main", async (ctx) => {
-    await ctx.answerCallbackQuery();
+    ctx.answerCallbackQuery().catch(() => {});
     const user = ctx.from!;
     delete sessions[user.id];
     await sendMainMenu(ctx, user.first_name);
