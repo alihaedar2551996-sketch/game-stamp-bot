@@ -367,7 +367,7 @@ async function sendOrdersList(ctx: any, userId: number) {
   keyboard.text("🏠 القائمة", "back_main");
 
   await ctx.reply(
-    `🎮 <b>طلباتك (${orders.length})</b>\n\nاضغط على أي طلب لتشوف تفاصيله:`,
+    `🎮 <b>ألعابي (${orders.length})</b>\n\nاضغط على أي لعبة لتشوف تفاصيلها:`,
     { parse_mode: "HTML", reply_markup: keyboard }
   );
 }
@@ -404,7 +404,7 @@ async function sendOrderDetail(ctx: any, orderId: number) {
     {
       parse_mode: "HTML",
       reply_markup: new InlineKeyboard()
-        .text("🔙 طلباتي", "show_orders")
+        .text("🎮 ألعابي", "show_orders")
         .text("🏠 القائمة", "back_main"),
     }
   );
