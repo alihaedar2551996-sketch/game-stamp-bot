@@ -18,7 +18,7 @@ if (WEBHOOK_URL && !WEBHOOK_SECRET) throw new Error("WEBHOOK_SECRET is required 
 
 export const bot = new Bot(BOT_TOKEN);
 registerUserHandlers(bot);
-bot.catch((err) => console.error("Bot error:", err.message));
+bot.catch((err) => console.error("Bot error:", err.message, err.error));
 
 const app = new Hono();
 app.use("*", async (c, next) => {

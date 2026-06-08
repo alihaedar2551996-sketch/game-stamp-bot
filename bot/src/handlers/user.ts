@@ -273,10 +273,9 @@ export function registerUserHandlers(bot: Bot) {
       return ctx.reply(
         `📋 *ملخص الطلب*\n\n` +
         `${session.gameEmoji} *${session.gameName}*\n` +
-        `🎯 الليفلات: ${levels.join(", ")} *(${levels.length} ليفل)*\n` +
+        `🎯 الليفلات: ${levels.join(", ")} (${levels.length} ليفل)\n` +
         `💰 السعر: *${ORDER_PRICE}$*\n` +
-        `💵 رصيدك بعد الطلب: *${(balance - ORDER_PRICE).toFixed(2)}$*\n\n` +
-        `تأكد وأرسل *نعم* للمتابعة:`,
+        `💵 رصيدك بعد الطلب: *${(balance - ORDER_PRICE).toFixed(2)}$*`,
         { parse_mode: "Markdown", reply_markup: new InlineKeyboard().text("✅ تأكيد الطلب", "confirm_order").text("❌ إلغاء", "back_main") }
       );
     }
