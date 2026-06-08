@@ -22,7 +22,7 @@
       position: fixed; top: 0; right: 0; bottom: 0;
       z-index: 50; padding: var(--space-4) 0;
       transform: translateX(0);
-      transition: transform 0.25s ease;
+      transition: transform 0.28s cubic-bezier(.4,0,.2,1);
     }
     .sidebar-brand {
       display: flex; align-items: center; gap: var(--space-3);
@@ -230,26 +230,45 @@
     .hamburger { display: none; background: none; border: none; cursor: pointer; padding: var(--space-2); border-radius: var(--radius-md); color: var(--text-primary); font-size: 20px; transition: background var(--transition-fast); }
     .hamburger:hover { background: var(--surface-hover); }
 
+    /* جداول قابلة للتمرير على الشاشات الصغيرة */
+    .table-card { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
     @media (max-width: 768px) {
+      /* الـ sidebar يختفي خارج الشاشة من اليمين (RTL) */
       .sidebar {
-        transform: translateX(110%) !important;
+        transform: translateX(100%);
         box-shadow: -8px 0 32px rgba(0,0,0,0.25);
         z-index: 200;
+        transition: transform 0.28s cubic-bezier(.4,0,.2,1);
       }
       .sidebar.open {
-        transform: translateX(0) !important;
+        transform: translateX(0);
       }
       .main { margin-right: 0 !important; width: 100%; }
       .hamburger { display: flex !important; align-items: center; justify-content: center; }
       .content { padding: var(--space-3); }
       .stats-grid { grid-template-columns: 1fr 1fr; gap: var(--space-3); }
+      .stat-card { padding: var(--space-3); }
+      .stat-value { font-size: 22px; }
       .topbar { padding: 0 var(--space-3); }
-      table { font-size: 12px; }
-      th, td { padding: var(--space-2) var(--space-2); }
+      /* الجداول: تمرير أفقي بدل كسر التصميم */
+      table { font-size: 12px; min-width: 520px; }
+      th, td { padding: var(--space-2) var(--space-3); white-space: nowrap; }
       .info-grid { grid-template-columns: 1fr; }
       .form-card { max-width: 100%; }
+      .modal { padding: var(--space-4); }
+      .levels-wrap { gap: var(--space-1); }
+      .level-btn { padding: 5px 10px; font-size: 12px; }
+      .search-wrap { max-width: 100%; }
+      .table-toolbar { flex-wrap: wrap; gap: var(--space-2); }
+      .section-header { flex-wrap: wrap; gap: var(--space-2); }
     }
-    @media (max-width: 400px) {
+    @media (max-width: 480px) {
+      .stats-grid { grid-template-columns: 1fr 1fr; }
+      .stat-icon-wrap { width: 38px; height: 38px; font-size: 18px; }
+      .topbar-title { font-size: 14px; }
+    }
+    @media (max-width: 360px) {
       .stats-grid { grid-template-columns: 1fr; }
     }
   </style>
@@ -461,9 +480,6 @@ function closeSidebar(){
   document.querySelector(".sidebar").classList.remove("open");
   document.getElementById("sidebarOverlay").classList.remove("open");
 }
-// إغلاق الـ sidebar لما يختار صفحة على موبايل
-const origShowPage = showPage;
-
 // ── Clock ──
 function updateClock(){
   document.getElementById("topbarTime").textContent = new Date().toLocaleTimeString("ar-SY");
@@ -504,7 +520,7 @@ if(saved){ API_KEY=saved; apiFetch("/api/stats").then(d=>{ if(!d.error){ documen
 // ── Navigation ──
 const pageTitles = { overview:"نظرة عامة", orders:"الطلبات", topups:"طلبات الشحن", users:"المستخدمون", balance:"إضافة رصيد" };
 function showPage(name, btn){
-  if(window.innerWidth<=768) closeSidebar();
+  closeSidebar();
   document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));
   document.querySelectorAll(".nav-item").forEach(b=>b.classList.remove("active"));
   document.getElementById("page-"+name).classList.add("active");
