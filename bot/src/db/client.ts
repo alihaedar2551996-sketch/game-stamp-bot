@@ -80,6 +80,13 @@ export async function addBalance(tgId: number, amount: number, note?: string): P
   return Number(res.rows[0].balance);
 }
 
+export async function deductBalance(tgId: number, amount: number, note?: string): Promise<{ ok: boolean; newBalance: number }> {
+  const current = await getUserBalance(tgId);
+  if (current < amount) return { ok: false, newBalance: current };
+  const newBalance = await addBalance(tgId, -amount, note ?? `خصم ${amount}$`);
+  return { ok: true, newBalance };
+}
+
 export async function getAllUsersWithBalance() {
   const res = await db.execute(`
     SELECT u.tg_id, u.first_name, u.username, u.joined_at, u.balance,

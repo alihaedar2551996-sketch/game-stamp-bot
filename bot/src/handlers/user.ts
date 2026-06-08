@@ -1,10 +1,11 @@
 import { Bot, InlineKeyboard } from "grammy";
-import { upsertUser, getAllGames, getUserBalance, createOrder, getOrdersByUser, getOrderLevels, createTopupRequest } from "../db/client";
+import { upsertUser, getAllGames, getUserBalance, deductBalance, createOrder, getOrdersByUser, getOrderLevels, createTopupRequest } from "../db/client";
 
 const SUPPORT_USERNAME = "AutoGamers";
 const SYRIATEL_NUMBER = "35181383";
 const USDT_ADDRESS = "0x77cf846eccb684f524b6a8d357e4dee6ded83a78";
 const SESSION_TIMEOUT_MS = 30 * 60 * 1000; // 30 دقيقة
+const ORDER_PRICE = 2; // سعر الطلب بالدولار
 
 interface Session {
   step: string;
@@ -173,6 +174,40 @@ export function registerUserHandlers(bot: Bot) {
     );
   });
 
+  // ── تأكيد الطلب ─────────────────────────────────────────
+  bot.callbackQuery("confirm_order", async (ctx) => {
+    await ctx.answerCallbackQuery();
+    const user = ctx.from!;
+    const session = getSession(user.id);
+    if (!session || session.step !== "confirm") return ctx.reply("❌ انتهت الجلسة، ابدأ من جديد.");
+
+    const levels = (session as any).pendingLevels as number[];
+
+    // خصم الرصيد
+    const result = await deductBalance(user.id, ORDER_PRICE, `طلب ${session.gameName}`);
+    if (!result.ok) {
+      delete sessions[user.id];
+      return ctx.reply(
+        `❌ *رصيدك غير كافٍ!*\n\n💳 اشحن رصيدك وحاول مجدداً.`,
+        { parse_mode: "Markdown", reply_markup: new InlineKeyboard().text("💳 شحن رصيد", "show_topup") }
+      );
+    }
+
+    // إنشاء الطلب
+    const orderId = await createOrder(user.id, session.gameId!, session.idfa!, session.idfv!, session.iosVersion!, session.appsflyerId!, levels);
+    delete sessions[user.id];
+
+    await ctx.reply(
+      `🎉 *تم إرسال طلبك!*\n\n` +
+      `${session.gameEmoji} *${session.gameName}*\n` +
+      `🎯 الليفلات: ${levels.join(", ")}\n` +
+      `🔢 رقم الطلب: #${orderId}\n` +
+      `💵 رصيدك المتبقي: *${result.newBalance.toFixed(2)}$*\n\n` +
+      `⏳ ستصلك إشعارات مع كل ليفل ✅`,
+      { parse_mode: "Markdown", reply_markup: new InlineKeyboard().text("📋 طلباتي", "show_orders").text("🏠 القائمة", "back_main") }
+    );
+  });
+
   // رجوع
   bot.callbackQuery("back_main", async (ctx) => {
     await ctx.answerCallbackQuery();
@@ -222,12 +257,31 @@ export function registerUserHandlers(bot: Bot) {
     if (session.step === "levels") {
       const levels = text.split(/[,،\s]+/).map(l => parseInt(l.trim())).filter(l => !isNaN(l) && l > 0);
       if (!levels.length) return ctx.reply("❌ أرسل أرقام صحيحة مثال: 1, 5, 10, 15");
-      const orderId = await createOrder(user.id, session.gameId!, session.idfa!, session.idfv!, session.iosVersion!, session.appsflyerId!, levels);
-      delete sessions[user.id];
+      // تحقق من الرصيد قبل التأكيد
+      const balance = await getUserBalance(user.id);
+      if (balance < ORDER_PRICE) {
+        delete sessions[user.id];
+        return ctx.reply(
+          `❌ *رصيدك غير كافٍ!*\n\n💵 رصيدك الحالي: *${balance.toFixed(2)}$*\n💰 سعر الطلب: *${ORDER_PRICE}$*\n\nاشحن رصيدك وحاول مجدداً.`,
+          { parse_mode: "Markdown", reply_markup: new InlineKeyboard().text("💳 شحن رصيد", "show_topup").text("🏠 القائمة", "back_main") }
+        );
+      }
+      // احفظ الليفلات وانتظر تأكيد
+      session.step = "confirm";
+      (session as any).pendingLevels = levels;
       return ctx.reply(
-        `🎉 *تم إرسال طلبك!*\n\n${session.gameEmoji} *${session.gameName}*\n🎯 الليفلات: ${levels.join(", ")}\n🔢 رقم الطلب: #${orderId}\n\n⏳ ستصلك إشعارات مع كل ليفل ✅`,
-        { parse_mode: "Markdown", reply_markup: new InlineKeyboard().text("📋 طلباتي", "show_orders").text("🏠 القائمة", "back_main") }
+        `📋 *ملخص الطلب*\n\n` +
+        `${session.gameEmoji} *${session.gameName}*\n` +
+        `🎯 الليفلات: ${levels.join(", ")} *(${levels.length} ليفل)*\n` +
+        `💰 السعر: *${ORDER_PRICE}$*\n` +
+        `💵 رصيدك بعد الطلب: *${(balance - ORDER_PRICE).toFixed(2)}$*\n\n` +
+        `تأكد وأرسل *نعم* للمتابعة:`,
+        { parse_mode: "Markdown", reply_markup: new InlineKeyboard().text("✅ تأكيد الطلب", "confirm_order").text("❌ إلغاء", "back_main") }
       );
+    }
+    if (session.step === "confirm") {
+      // المستخدم كتب بدل ما يضغط الزر — تجاهل
+      return;
     }
 
     // فلو الشحن — المبلغ
