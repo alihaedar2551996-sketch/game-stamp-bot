@@ -11,6 +11,7 @@ const PORT = Number(process.env.PORT ?? 3000);
 const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET!;
 const WEBHOOK_URL = process.env.WEBHOOK_URL;
 const API_KEY = process.env.ADMIN_API_KEY!;
+const ADMIN_CHAT_ID = Number(process.env.ADMIN_CHAT_ID ?? "6762566920");
 
 if (!BOT_TOKEN) throw new Error("BOT_TOKEN is required");
 if (!API_KEY) throw new Error("ADMIN_API_KEY is required");
@@ -57,6 +58,15 @@ import {
   getAllTopupRequests, approveTopup, rejectTopup, initTopupTable,
   getReferrer, addReferralCommission, getReferralStats,
 } from "./db/client";
+
+// ── Admin Notify ────────────────────────────────────────────────────────────
+async function notifyAdmin(msg: string) {
+  try {
+    await bot.api.sendMessage(ADMIN_CHAT_ID, msg, { parse_mode: "HTML" });
+  } catch(e) {
+    log("WARN", "NOTIFY", "Failed to notify admin", e);
+  }
+}
 
 // ── Login / Logout ──────────────────────────────────────────────────────────
 app.post("/api/login", async (c) => {
@@ -107,6 +117,13 @@ app.post("/api/topups/:id/approve", async (c) => {
   const topupId = Number(c.req.param("id"));
   const result = await approveTopup(topupId, Number(amount));
 
+  // إشعار الأدمن بالقبول
+  await notifyAdmin(
+    `✅ <b>تم قبول شحن #${topupId}</b>\n` +
+    `💰 المبلغ: <b>${Number(amount).toFixed(2)}$</b>\n` +
+    `👤 User ID: <code>${result.userId}</code>`
+  );
+
   // إشعار المستخدم بقبول الشحن
   try {
     await bot.api.sendMessage(result.userId,
@@ -135,7 +152,9 @@ app.post("/api/topups/:id/approve", async (c) => {
 
 app.post("/api/topups/:id/reject", async (c) => {
   if (!auth(c)) return c.json({ error: "Unauthorized" }, 401);
-  const userId = await rejectTopup(Number(c.req.param("id")));
+  const topupRejectId = Number(c.req.param("id"));
+  const userId = await rejectTopup(topupRejectId);
+  await notifyAdmin(`❌ <b>تم رفض شحن #${topupRejectId}</b>\n👤 User ID: <code>${userId}</code>`);
   try {
     await bot.api.sendMessage(userId,
       `❌ <b>تم رفض طلب الشحن</b>\n\nتواصل مع الدعم لمزيد من المعلومات.`,
@@ -157,6 +176,12 @@ app.post("/api/stamp-level", async (c) => {
     try {
       const allLevels = String(order.levels).split(",").map(Number);
       if (order.status === "completed") {
+        await notifyAdmin(
+          `🎉 <b>طلب مكتمل #${orderId}</b>\n` +
+          `${order.emoji} <b>${order.game_name}</b>\n` +
+          `👤 ${order.first_name}${order.username ? ` (@${order.username})` : ""}\n` +
+          `✅ جميع الليفلات اكتملت`
+        );
         await bot.api.sendMessage(Number(order.user_tg_id),
           `🎉 <b>مبروك! اكتمل طلبك بالكامل!</b>\n\n${order.emoji} <b>${order.game_name}</b>\n✅ تم ختم جميع الليفلات: ${allLevels.join(", ")}\n\nأنت بطل حقيقي! 🏆`,
           { parse_mode: "HTML" }

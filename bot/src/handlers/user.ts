@@ -1,5 +1,11 @@
 import { Bot, InlineKeyboard } from "grammy";
 import { upsertUser, getAllGames, getUserBalance, deductBalance, createOrder, getOrdersByUser, getOrderLevels, getOrder, createTopupRequest, setReferral, getUserReferralInfo } from "../db/client";
+import { bot } from "../index";
+
+const ADMIN_CHAT_ID = Number(process.env.ADMIN_CHAT_ID ?? "6762566920");
+async function notifyAdmin(msg: string) {
+  try { await bot.api.sendMessage(ADMIN_CHAT_ID, msg, { parse_mode: "HTML" }); } catch {}
+}
 
 const SUPPORT_USERNAME = "AutoGamers";
 const SYRIATEL_NUMBER = "35181383";
@@ -196,6 +202,15 @@ export function registerUserHandlers(bot: Bot) {
     }
 
     delete sessions[user.id];
+
+    // إشعار الأدمن بطلب جديد
+    await notifyAdmin(
+      `🆕 <b>طلب جديد #${orderId}</b>\n` +
+      `${session.gameEmoji} <b>${session.gameName}</b>\n` +
+      `👤 ${ctx.from!.first_name}${ctx.from!.username ? ` (@${ctx.from!.username})` : ""}\n` +
+      `🎯 الليفلات: ${levels.join(", ")}\n` +
+      `💰 السعر: ${session.pendingPrice?.toFixed(2)}$`
+    );
 
     await ctx.reply(
       `🎉 <b>تم إرسال طلبك!</b>\n\n` +
@@ -493,6 +508,13 @@ export function registerUserHandlers(bot: Bot) {
       const txId = ctx.message.text.trim();
       const reqId = await createTopupRequest(user.id, session.topupMethod!, session.topupAmount!, txId, null);
       delete sessions[user.id];
+      await notifyAdmin(
+        `💳 <b>طلب شحن جديد #${reqId}</b>\n` +
+        `👤 ${user.first_name}${user.username ? ` (@${user.username})` : ""}\n` +
+        `💰 المبلغ: <b>${session.topupAmount}$</b>\n` +
+        `📱 الطريقة: ${session.topupMethod === "syriatel" ? "سيريتيل كاش" : "USDT"}\n` +
+        `🔢 رقم العملية: <code>${txId}</code>`
+      );
       return ctx.reply(
         `✅ <b>تم استلام طلب الشحن بنجاح!</b>\n\n` +
         `💰 المبلغ: <b>${session.topupAmount}$</b>\n` +
@@ -513,6 +535,14 @@ export function registerUserHandlers(bot: Bot) {
     const photoId = ctx.message.photo[ctx.message.photo.length - 1].file_id;
     const reqId = await createTopupRequest(user.id, session.topupMethod!, session.topupAmount!, null, photoId);
     delete sessions[user.id];
+
+    await notifyAdmin(
+      `💳 <b>طلب شحن جديد #${reqId}</b>\n` +
+      `👤 ${user.first_name}${user.username ? ` (@${user.username})` : ""}\n` +
+      `💰 المبلغ: <b>${session.topupAmount}$</b>\n` +
+      `📱 الطريقة: ${session.topupMethod === "syriatel" ? "سيريتيل كاش" : "USDT"}\n` +
+      `📸 إثبات: صورة`
+    );
 
     await ctx.reply(
       `✅ <b>تم استلام طلب الشحن بنجاح!</b>\n\n` +
