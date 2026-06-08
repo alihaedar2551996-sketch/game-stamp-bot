@@ -351,13 +351,23 @@ async function sendMainMenu(ctx: any, firstName: string) {
     .row()
     .url("🆘 الدعم", `https://t.me/${SUPPORT_USERNAME}`);
   await ctx.reply(
-    `💀 الـمُستوى الأخير: نِهاية اللعبة تبدأ من هُنا!\n\n` +
-    `أهلاً بك ${firstName} في AutoGamer..\n` +
-    `المَقر السري لتجهيز الألعاب وسحق المراحل.\n\n` +
-    `مع AutoGamer نحن هنا لنختصر عليك الطريق:\n\n` +
-    `• أعلى كفاءة وسرعة.\n` +
-    `• 🏆 قفل ملفات المراحل.\n\n` +
+    `💀 الـمُستوى الأخير: نِهاية اللعبة تبدأ من هُنا!
+
+` +
+    `أهلاً بك ${firstName} في AutoGamer..
+` +
+    `المَقر السري لتجهيز الألعاب وسحق المراحل.
+
+` +
+    `مع AutoGamer نحن هنا لنختصر عليك الطريق:
+
+` +
+    `• أعلى كفاءة وسرعة.
+` +
+    `• 🏆 قفل ملفات المراحل.
+
+` +
     `الهندسة والتعب علينا.. والسيطرة إلك! 👑`,
-    { parse_mode: "MarkdownV2", reply_markup: keyboard }
+    { reply_markup: keyboard }
   );
 }
