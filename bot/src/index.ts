@@ -54,6 +54,7 @@ if (WEBHOOK_URL) {
 
 import {
   getDashboardStats, getAllUsersWithBalance, getAllOrders,
+  getRevenueStats,
   getOrderLevels, stampLevel, getOrder, addBalance, getUserBalance,
   getAllTopupRequests, approveTopup, rejectTopup, initTopupTable,
   getReferrer, addReferralCommission, getReferralStats,
@@ -225,6 +226,11 @@ app.get("/api/photo/:fileId", async (c) => {
 
 // إحصائيات الإحالات
 app.get("/api/referrals", async (c) => {
+
+app.get("/api/revenue", async (c) => {
+  if (!auth(c)) return c.json({ error: "Unauthorized" }, 401);
+  return c.json(await getRevenueStats());
+});
   if (!auth(c)) return c.json({ error: "Unauthorized" }, 401);
   return c.json(await getReferralStats());
 });

@@ -343,3 +343,102 @@ export async function getUserReferralInfo(tgId: number) {
     totalCommission: Number(total.rows[0]?.total ?? 0),
   };
 }
+
+// ── Revenue Stats ────────────────────────────────────────────────────────────
+
+export async function getRevenueStats() {
+  // إيرادات الشحن المقبول (topup)
+  const topupToday = await db.execute(`
+    SELECT COALESCE(SUM(CAST(amount AS REAL)), 0) as total
+    FROM topup_requests
+    WHERE status = 'approved'
+      AND date(created_at) = date('now')
+  `);
+  const topupWeek = await db.execute(`
+    SELECT COALESCE(SUM(CAST(amount AS REAL)), 0) as total
+    FROM topup_requests
+    WHERE status = 'approved'
+      AND date(created_at) >= date('now', '-7 days')
+  `);
+  const topupMonth = await db.execute(`
+    SELECT COALESCE(SUM(CAST(amount AS REAL)), 0) as total
+    FROM topup_requests
+    WHERE status = 'approved'
+      AND date(created_at) >= date('now', 'start of month')
+  `);
+  const topupAll = await db.execute(`
+    SELECT COALESCE(SUM(CAST(amount AS REAL)), 0) as total
+    FROM topup_requests
+    WHERE status = 'approved'
+  `);
+
+  // إيرادات الطلبات (خصم الرصيد من balance_log)
+  const ordersToday = await db.execute(`
+    SELECT COALESCE(SUM(ABS(amount)), 0) as total
+    FROM balance_log
+    WHERE amount < 0
+      AND note LIKE 'طلب%'
+      AND date(created_at) = date('now')
+  `);
+  const ordersWeek = await db.execute(`
+    SELECT COALESCE(SUM(ABS(amount)), 0) as total
+    FROM balance_log
+    WHERE amount < 0
+      AND note LIKE 'طلب%'
+      AND date(created_at) >= date('now', '-7 days')
+  `);
+  const ordersMonth = await db.execute(`
+    SELECT COALESCE(SUM(ABS(amount)), 0) as total
+    FROM balance_log
+    WHERE amount < 0
+      AND note LIKE 'طلب%'
+      AND date(created_at) >= date('now', 'start of month')
+  `);
+  const ordersAll = await db.execute(`
+    SELECT COALESCE(SUM(ABS(amount)), 0) as total
+    FROM balance_log
+    WHERE amount < 0
+      AND note LIKE 'طلب%'
+  `);
+
+  // رسم بياني — آخر 30 يوم (الشحن + الطلبات)
+  const chart = await db.execute(`
+    SELECT
+      date(created_at) as day,
+      COALESCE(SUM(CAST(amount AS REAL)), 0) as topup_revenue
+    FROM topup_requests
+    WHERE status = 'approved'
+      AND date(created_at) >= date('now', '-30 days')
+    GROUP BY date(created_at)
+    ORDER BY day ASC
+  `);
+
+  const chartOrders = await db.execute(`
+    SELECT
+      date(created_at) as day,
+      COALESCE(SUM(ABS(amount)), 0) as orders_revenue
+    FROM balance_log
+    WHERE amount < 0
+      AND note LIKE 'طلب%'
+      AND date(created_at) >= date('now', '-30 days')
+    GROUP BY date(created_at)
+    ORDER BY day ASC
+  `);
+
+  return {
+    topup: {
+      today: Number(topupToday.rows[0].total),
+      week:  Number(topupWeek.rows[0].total),
+      month: Number(topupMonth.rows[0].total),
+      all:   Number(topupAll.rows[0].total),
+    },
+    orders: {
+      today: Number(ordersToday.rows[0].total),
+      week:  Number(ordersWeek.rows[0].total),
+      month: Number(ordersMonth.rows[0].total),
+      all:   Number(ordersAll.rows[0].total),
+    },
+    chart: chart.rows,
+    chartOrders: chartOrders.rows,
+  };
+}

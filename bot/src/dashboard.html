@@ -410,6 +410,53 @@
     @media (max-width: 360px) {
       .stats-grid { grid-template-columns: 1fr; }
     }
+
+    /* ── Revenue Section ── */
+    .revenue-section { margin-bottom: var(--space-6); }
+    .revenue-tabs { display: flex; gap: var(--space-2); margin-bottom: var(--space-4); flex-wrap: wrap; }
+    .rev-tab {
+      padding: var(--space-1) var(--space-4); border-radius: 999px;
+      border: 1px solid var(--border-default); background: var(--surface-secondary);
+      color: var(--text-secondary); cursor: pointer; font-size: 13px; font-weight: 600;
+      transition: all var(--transition-fast);
+    }
+    .rev-tab.active, .rev-tab:hover {
+      background: var(--surface-active); border-color: var(--neon);
+      color: var(--text-primary);
+    }
+    html.light .rev-tab.active, html.light .rev-tab:hover {
+      border-color: var(--neon); color: var(--neon);
+    }
+    .revenue-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: var(--space-4); margin-bottom: var(--space-4); }
+    .rev-card {
+      background: var(--surface-primary); border-radius: var(--radius-xl);
+      box-shadow: var(--shadow-lifted-card); padding: var(--space-4) var(--space-5);
+      border: 1px solid var(--border-subtle);
+    }
+    html:not(.light) .rev-card { background: linear-gradient(135deg, var(--bg-card) 0%, rgba(0,255,136,0.02) 100%); }
+    .rev-label { font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: var(--space-2); }
+    .rev-value { font-size: 26px; font-weight: 800; line-height: 1; }
+    .rev-value.topup { color: var(--neon); }
+    html.light .rev-value.topup { color: var(--neon-dim); }
+    .rev-value.orders { color: var(--blue-800); }
+    .rev-value.total { color: var(--text-primary); }
+    .rev-sub { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+    .chart-card { background: var(--surface-primary); border-radius: var(--radius-xl); box-shadow: var(--shadow-lifted-card); padding: var(--space-5); border: 1px solid var(--border-subtle); margin-bottom: var(--space-4); }
+    .chart-title { font-size: 13px; font-weight: 700; margin-bottom: var(--space-4); color: var(--text-secondary); }
+    .chart-bars { display: flex; align-items: flex-end; gap: 3px; height: 80px; overflow: hidden; }
+    .chart-bar-wrap { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; height: 100%; justify-content: flex-end; }
+    .chart-bar { width: 100%; border-radius: 3px 3px 0 0; min-height: 2px; transition: height 0.4s ease; cursor: pointer; position: relative; }
+    .chart-bar.topup-bar { background: var(--neon); opacity: 0.7; }
+    html.light .chart-bar.topup-bar { background: var(--neon-dim); }
+    .chart-bar.orders-bar { background: var(--blue-800); opacity: 0.7; }
+    .chart-bar:hover { opacity: 1; }
+    .chart-day { font-size: 9px; color: var(--text-muted); white-space: nowrap; }
+    .chart-legend { display: flex; gap: var(--space-4); margin-top: var(--space-3); }
+    .legend-item { display: flex; align-items: center; gap: var(--space-2); font-size: 12px; color: var(--text-muted); }
+    .legend-dot { width: 10px; height: 10px; border-radius: 2px; }
+    .legend-dot.topup { background: var(--neon); }
+    html.light .legend-dot.topup { background: var(--neon-dim); }
+    .legend-dot.orders { background: var(--blue-800); }
   </style>
 </head>
 <body>
@@ -510,6 +557,30 @@
 
       <!-- Overview -->
       <div id="page-overview" class="page active">
+
+        <!-- Revenue Section -->
+        <div class="revenue-section" id="revenueSection">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--space-3)">
+            <div class="section-title">💰 الإيرادات</div>
+            <div class="revenue-tabs">
+              <button class="rev-tab active" onclick="switchRevTab('today',this)">اليوم</button>
+              <button class="rev-tab" onclick="switchRevTab('week',this)">الأسبوع</button>
+              <button class="rev-tab" onclick="switchRevTab('month',this)">الشهر</button>
+              <button class="rev-tab" onclick="switchRevTab('all',this)">الكل</button>
+            </div>
+          </div>
+          <div class="revenue-grid" id="revenueGrid">
+            <div class="loading">جاري التحميل...</div>
+          </div>
+          <div class="chart-card">
+            <div class="chart-title">📈 آخر 30 يوم</div>
+            <div class="chart-bars" id="revenueChart"><div class="loading" style="padding:0">...</div></div>
+            <div class="chart-legend">
+              <div class="legend-item"><div class="legend-dot topup"></div> شحن مقبول</div>
+              <div class="legend-item"><div class="legend-dot orders"></div> طلبات مكتملة</div>
+            </div>
+          </div>
+        </div>
         <div class="stats-grid" id="statsGrid">
           <div class="loading">جاري التحميل...</div>
         </div>
@@ -733,7 +804,7 @@ function showPage(name, btn){
   document.getElementById("page-"+name).classList.add("active");
   if(btn) btn.classList.add("active");
   document.getElementById("topbarTitle").textContent = pageTitles[name]||"";
-  if(name==="overview") loadOverview();
+  if(name==="overview") { loadOverview(); loadRevenue(); }
   if(name==="orders") loadOrders();
   if(name==="topups") loadTopups();
   if(name==="users") loadUsers();
@@ -747,7 +818,7 @@ function refreshPage(){
   const name = active.id.replace("page-","");
   showPage(name, null);
 }
-function initDashboard(){ loadOverview(); updateBadges(); setInterval(updateBadges, 30000); }
+function initDashboard(){ loadOverview(); loadRevenue(); updateBadges(); setInterval(updateBadges, 30000); }
 
 // ── Badges ──
 async function updateBadges(){
@@ -1150,6 +1221,90 @@ async function loadReferrals(){
     </tr>`).join("")}
     </tbody></table>`;
 }
+
+// ── Revenue ──────────────────────────────────────────────────────────────────
+let revenueData = null;
+let currentRevTab = 'today';
+
+async function loadRevenue() {
+  revenueData = await apiFetch('/api/revenue');
+  renderRevenue(currentRevTab);
+  renderRevenueChart();
+}
+
+function switchRevTab(tab, btn) {
+  currentRevTab = tab;
+  document.querySelectorAll('.rev-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderRevenue(tab);
+}
+
+function renderRevenue(tab) {
+  if (!revenueData) return;
+  const t = revenueData.topup[tab] || 0;
+  const o = revenueData.orders[tab] || 0;
+  const total = t + o;
+  document.getElementById('revenueGrid').innerHTML = `
+    <div class="rev-card">
+      <div class="rev-label">💳 شحن مقبول</div>
+      <div class="rev-value topup">$${t.toFixed(2)}</div>
+      <div class="rev-sub">إيراد من الشحنات</div>
+    </div>
+    <div class="rev-card">
+      <div class="rev-label">🎮 طلبات منجزة</div>
+      <div class="rev-value orders">$${o.toFixed(2)}</div>
+      <div class="rev-sub">خصم من رصيد المستخدمين</div>
+    </div>
+    <div class="rev-card">
+      <div class="rev-label">💰 الإجمالي</div>
+      <div class="rev-value total">$${total.toFixed(2)}</div>
+      <div class="rev-sub">شحن + طلبات</div>
+    </div>
+  `;
+}
+
+function renderRevenueChart() {
+  if (!revenueData) return;
+
+  // ابنِ map لكل يوم
+  const topupMap = {};
+  (revenueData.chart || []).forEach(r => { topupMap[r.day] = Number(r.topup_revenue); });
+  const ordersMap = {};
+  (revenueData.chartOrders || []).forEach(r => { ordersMap[r.day] = Number(r.orders_revenue); });
+
+  // آخر 30 يوم
+  const days = [];
+  for (let i = 29; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    const key = d.toISOString().split('T')[0];
+    days.push(key);
+  }
+
+  const maxVal = Math.max(
+    ...days.map(d => (topupMap[d] || 0) + (ordersMap[d] || 0)),
+    0.01
+  );
+
+  const bars = days.map(day => {
+    const t = topupMap[day] || 0;
+    const o = ordersMap[day] || 0;
+    const tPct = Math.round((t / maxVal) * 100);
+    const oPct = Math.round((o / maxVal) * 100);
+    const label = day.slice(5); // MM-DD
+    const tooltip = `${label}\nشحن: $${t.toFixed(2)}\nطلبات: $${o.toFixed(2)}`;
+    return `
+      <div class="chart-bar-wrap" title="${tooltip}">
+        <div class="chart-bar orders-bar" style="height:${oPct}%"></div>
+        <div class="chart-bar topup-bar" style="height:${tPct}%"></div>
+        <div class="chart-day">${label.slice(3)}</div>
+      </div>`;
+  }).join('');
+
+  document.getElementById('revenueChart').innerHTML = bars;
+}
+
+
 </script>
 </body>
 </html>
