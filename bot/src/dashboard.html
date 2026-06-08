@@ -337,6 +337,9 @@
       <button class="nav-item" onclick="showPage('broadcast',this)">
         <span class="nav-icon">📣</span> رسالة جماعية
       </button>
+      <button class="nav-item" onclick="showPage('referrals',this)">
+        <span class="nav-icon">🎁</span> الإحالات
+      </button>
     </div>
 
     <div class="sidebar-bottom">
@@ -472,6 +475,18 @@
         </div>
       </div>
 
+      <!-- Referrals -->
+      <div id="page-referrals" class="page">
+        <div class="stats-grid" id="referralStatsGrid" style="margin-bottom:var(--space-4)"></div>
+        <div class="table-card">
+          <div class="table-toolbar">
+            <div class="table-toolbar-title">🎁 المستخدمون المُحيلون</div>
+            <button class="btn btn-secondary btn-sm" onclick="loadReferrals()">🔄 تحديث</button>
+          </div>
+          <div id="referralsTable"><div class="loading">جاري التحميل...</div></div>
+        </div>
+      </div>
+
     </div><!-- /content -->
   </div><!-- /main -->
 </div><!-- /app -->
@@ -546,7 +561,7 @@ const saved = localStorage.getItem("admin_key");
 if(saved){ API_KEY=saved; apiFetch("/api/stats").then(d=>{ if(!d.error){ document.getElementById("loginScreen").style.display="none"; document.getElementById("dashboard").style.display="flex"; initDashboard(); } else { localStorage.removeItem("admin_key"); API_KEY=""; } }); }
 
 // ── Navigation ──
-const pageTitles = { overview:"نظرة عامة", orders:"الطلبات", topups:"طلبات الشحن", users:"المستخدمون", balance:"إضافة رصيد", broadcast:"رسالة جماعية" };
+const pageTitles = { overview:"نظرة عامة", orders:"الطلبات", topups:"طلبات الشحن", users:"المستخدمون", balance:"إضافة رصيد", broadcast:"رسالة جماعية", referrals:"الإحالات" };
 function showPage(name, btn){
   closeSidebar();
   document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));
@@ -560,6 +575,7 @@ function showPage(name, btn){
   if(name==="users") loadUsers();
   if(name==="balance") loadBalanceForm();
   if(name==="broadcast") loadBroadcast();
+  if(name==="referrals") loadReferrals();
 }
 function refreshPage(){
   const active = document.querySelector(".page.active");
@@ -856,6 +872,33 @@ async function doBroadcast(){
   showToast(`✅ أُرسلت لـ ${res.sent}/${res.total} مستخدم`);
   document.getElementById("broadcastMsg").value = "";
   document.getElementById("charCount").textContent = "0 حرف";
+}
+
+// ── Referrals ──
+async function loadReferrals(){
+  const data = await apiFetch("/api/referrals");
+  if(!data || !data.length){
+    document.getElementById("referralStatsGrid").innerHTML="";
+    document.getElementById("referralsTable").innerHTML=`<div class="empty"><div class="empty-icon">🎁</div><div class="empty-text">لا توجد إحالات بعد</div></div>`;
+    return;
+  }
+  const totalReferred   = data.reduce((s,r)=>s+Number(r.total_referred),0);
+  const totalCommission = data.reduce((s,r)=>s+Number(r.total_commission),0);
+  document.getElementById("referralStatsGrid").innerHTML=`
+    <div class="stat-card"><div class="stat-icon-wrap stat-icon-blue">👥</div><div class="stat-info"><div class="stat-label">إجمالي المُحالين</div><div class="stat-value">${totalReferred}</div></div></div>
+    <div class="stat-card"><div class="stat-icon-wrap stat-icon-green">💰</div><div class="stat-info"><div class="stat-label">إجمالي العمولات</div><div class="stat-value">$${totalCommission.toFixed(2)}</div></div></div>
+    <div class="stat-card"><div class="stat-icon-wrap stat-icon-purple">🎁</div><div class="stat-info"><div class="stat-label">عدد المُحيلين</div><div class="stat-value">${data.length}</div></div></div>`;
+  document.getElementById("referralsTable").innerHTML=`
+    <table><thead><tr>
+      <th>المُحيل</th><th>أصدقاء مدعوون</th><th>عدد العمولات</th><th>إجمالي العمولات</th>
+    </tr></thead><tbody>
+    ${data.map(r=>`<tr>
+      <td><strong>${r.first_name}</strong>${r.username?` <span style="color:var(--text-muted)">@${r.username}</span>`:""}<br><code style="font-size:11px;background:var(--surface-secondary);padding:1px 5px;border-radius:4px">${r.tg_id}</code></td>
+      <td><span class="status-pill pill-pending">${r.total_referred} صديق</span></td>
+      <td>${r.total_commissions}</td>
+      <td><span class="balance-chip">💵 $${Number(r.total_commission).toFixed(2)}</span></td>
+    </tr>`).join("")}
+    </tbody></table>`;
 }
 </script>
 </body>

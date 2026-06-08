@@ -1,5 +1,5 @@
 import { Bot, InlineKeyboard } from "grammy";
-import { upsertUser, getAllGames, getUserBalance, deductBalance, createOrder, getOrdersByUser, getOrderLevels, getOrder, createTopupRequest } from "../db/client";
+import { upsertUser, getAllGames, getUserBalance, deductBalance, createOrder, getOrdersByUser, getOrderLevels, getOrder, createTopupRequest, setReferral, getUserReferralInfo } from "../db/client";
 
 const SUPPORT_USERNAME = "AutoGamers";
 const SYRIATEL_NUMBER = "35181383";
@@ -59,6 +59,14 @@ export function registerUserHandlers(bot: Bot) {
     const user = ctx.from!;
     await upsertUser(user.id, user.username, user.first_name);
     delete sessions[user.id];
+
+    // معالجة رابط الإحالة /start?ref=123456
+    const payload = ctx.match?.trim();
+    if (payload && /^\d+$/.test(payload)) {
+      const referrerId = Number(payload);
+      await setReferral(referrerId, user.id);
+    }
+
     await sendMainMenu(ctx, user.first_name);
   });
 
@@ -206,6 +214,31 @@ export function registerUserHandlers(bot: Bot) {
     const user = ctx.from!;
     delete sessions[user.id];
     await sendMainMenu(ctx, user.first_name);
+  });
+
+  // ── دعوة صديق ────────────────────────────────────────────
+  bot.callbackQuery("invite_friend", async (ctx) => {
+    ctx.answerCallbackQuery().catch(() => {});
+    const user = ctx.from!;
+    const botUsername = (await ctx.api.getMe()).username;
+    const inviteLink = `https://t.me/${botUsername}?start=${user.id}`;
+    const info = await getUserReferralInfo(user.id);
+
+    await ctx.reply(
+      `🎁 <b>دعوة صديق</b>\n\n` +
+      `🔗 رابط الدعوة الخاص بك:\n<code>${inviteLink}</code>\n\n` +
+      `💰 تربح <b>10%</b> من كل شحن يشحنه صديقك\n\n` +
+      `📊 <b>إحصائياتك:</b>\n` +
+      `👥 أصدقاء مدعوون: <b>${info.referred.length}</b>\n` +
+      `💵 إجمالي العمولات: <b>${info.totalCommission.toFixed(2)}$</b>`,
+      {
+        parse_mode: "HTML",
+        reply_markup: new InlineKeyboard()
+          .url("📤 شارك الرابط", `https://t.me/share/url?url=${encodeURIComponent(inviteLink)}&text=${encodeURIComponent("انضم لـ AutoGamer واحصل على خدمة ختم المراحل 🎮")}`)
+          .row()
+          .text("🏠 القائمة", "back_main"),
+      }
+    );
   });
 
   // /profile
@@ -415,6 +448,8 @@ async function sendMainMenu(ctx: any, firstName: string) {
     .text("🎮 ألعابي", "show_orders").text("🕹️ اطلب لعبة", "show_games")
     .row()
     .text("💵 رصيدي", "show_balance").text("💳 شحن رصيد", "show_topup")
+    .row()
+    .text("🎁 دعوة صديق", "invite_friend")
     .row()
     .url("🆘 الدعم", `https://t.me/${SUPPORT_USERNAME}`);
   await ctx.reply(

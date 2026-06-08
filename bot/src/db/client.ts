@@ -214,6 +214,24 @@ export async function initTopupTable() {
     status      TEXT NOT NULL DEFAULT 'pending',
     created_at  TEXT NOT NULL DEFAULT (datetime('now'))
   )`);
+
+  // جدول الإحالات
+  await db.execute(`CREATE TABLE IF NOT EXISTS referrals (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    referrer_id  INTEGER NOT NULL REFERENCES users(tg_id),
+    referred_id  INTEGER NOT NULL UNIQUE REFERENCES users(tg_id),
+    created_at   TEXT NOT NULL DEFAULT (datetime('now'))
+  )`);
+
+  // جدول عمولات الإحالة
+  await db.execute(`CREATE TABLE IF NOT EXISTS referral_commissions (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    referrer_id  INTEGER NOT NULL REFERENCES users(tg_id),
+    referred_id  INTEGER NOT NULL REFERENCES users(tg_id),
+    topup_id     INTEGER NOT NULL REFERENCES topup_requests(id),
+    amount       REAL NOT NULL,
+    created_at   TEXT NOT NULL DEFAULT (datetime('now'))
+  )`);
 }
 
 export async function createTopupRequest(
@@ -251,4 +269,75 @@ export async function rejectTopup(id: number): Promise<number> {
   if (!r) throw new Error("Not found");
   await db.execute({ sql: `UPDATE topup_requests SET status = 'rejected' WHERE id = ?`, args: [id] });
   return Number(r.user_id);
+}
+
+// ── Referrals ───────────────────────────────────────────────────────────────
+
+export async function setReferral(referrerId: number, referredId: number): Promise<boolean> {
+  // ما نسجل إحالة لنفس المستخدم
+  if (referrerId === referredId) return false;
+  try {
+    await db.execute({
+      sql: `INSERT OR IGNORE INTO referrals (referrer_id, referred_id) VALUES (?, ?)`,
+      args: [referrerId, referredId],
+    });
+    return true;
+  } catch { return false; }
+}
+
+export async function getReferrer(referredId: number): Promise<number | null> {
+  const res = await db.execute({
+    sql: `SELECT referrer_id FROM referrals WHERE referred_id = ?`,
+    args: [referredId],
+  });
+  return res.rows[0] ? Number(res.rows[0].referrer_id) : null;
+}
+
+export async function addReferralCommission(
+  referrerId: number, referredId: number, topupId: number, amount: number
+): Promise<number> {
+  await db.execute({
+    sql: `INSERT INTO referral_commissions (referrer_id, referred_id, topup_id, amount) VALUES (?, ?, ?, ?)`,
+    args: [referrerId, referredId, topupId, amount],
+  });
+  return await addBalance(referrerId, amount, `عمولة إحالة 10% من شحن #${topupId}`);
+}
+
+export async function getReferralStats() {
+  const res = await db.execute(`
+    SELECT
+      u.first_name, u.username, u.tg_id,
+      COUNT(DISTINCT r.referred_id)                      AS total_referred,
+      COALESCE(SUM(rc.amount), 0)                        AS total_commission,
+      COUNT(rc.id)                                       AS total_commissions
+    FROM users u
+    JOIN referrals r ON r.referrer_id = u.tg_id
+    LEFT JOIN referral_commissions rc ON rc.referrer_id = u.tg_id
+    GROUP BY u.tg_id
+    ORDER BY total_commission DESC
+  `);
+  return res.rows;
+}
+
+export async function getUserReferralInfo(tgId: number) {
+  const referred = await db.execute({
+    sql: `
+      SELECT u.first_name, u.username, u.tg_id, u.joined_at,
+             COALESCE(SUM(rc.amount), 0) AS commission_earned
+      FROM referrals r
+      JOIN users u ON u.tg_id = r.referred_id
+      LEFT JOIN referral_commissions rc ON rc.referred_id = r.referred_id AND rc.referrer_id = ?
+      WHERE r.referrer_id = ?
+      GROUP BY u.tg_id
+    `,
+    args: [tgId, tgId],
+  });
+  const total = await db.execute({
+    sql: `SELECT COALESCE(SUM(amount), 0) as total FROM referral_commissions WHERE referrer_id = ?`,
+    args: [tgId],
+  });
+  return {
+    referred: referred.rows,
+    totalCommission: Number(total.rows[0]?.total ?? 0),
+  };
 }

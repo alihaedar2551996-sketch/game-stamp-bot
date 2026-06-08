@@ -50,6 +50,7 @@ import {
   getDashboardStats, getAllUsersWithBalance, getAllOrders,
   getOrderLevels, stampLevel, getOrder, addBalance, getUserBalance,
   getAllTopupRequests, approveTopup, rejectTopup, initTopupTable,
+  getReferrer, addReferralCommission, getReferralStats,
 } from "./db/client";
 
 app.get("/api/stats",  async (c) => { if (!auth(c)) return c.json({ error: "Unauthorized" }, 401); return c.json(await getDashboardStats()); });
@@ -74,13 +75,32 @@ app.post("/api/topups/:id/approve", async (c) => {
   if (!auth(c)) return c.json({ error: "Unauthorized" }, 401);
   const { amount } = await c.req.json();
   if (!amount) return c.json({ error: "amount required" }, 400);
-  const result = await approveTopup(Number(c.req.param("id")), Number(amount));
+  const topupId = Number(c.req.param("id"));
+  const result = await approveTopup(topupId, Number(amount));
+
+  // إشعار المستخدم بقبول الشحن
   try {
     await bot.api.sendMessage(result.userId,
       `✅ <b>تم قبول طلب الشحن!</b>\n\n💰 تم إضافة <b>${Number(amount).toFixed(2)} دولار</b> لرصيدك\n💵 رصيدك الحالي: <b>${result.newBalance.toFixed(2)} دولار</b>`,
       { parse_mode: "HTML" }
     );
   } catch(e) { console.error(e); }
+
+  // عمولة 10% للمدعي إن وجد
+  const referrerId = await getReferrer(result.userId);
+  if (referrerId) {
+    const commission = parseFloat((Number(amount) * 0.10).toFixed(2));
+    if (commission > 0) {
+      const newReferrerBalance = await addReferralCommission(referrerId, result.userId, topupId, commission);
+      try {
+        await bot.api.sendMessage(referrerId,
+          `🎁 <b>ربحت عمولة إحالة!</b>\n\n💰 <b>${commission.toFixed(2)}$</b> (10% من شحن صديقك)\n💵 رصيدك الحالي: <b>${newReferrerBalance.toFixed(2)}$</b>`,
+          { parse_mode: "HTML" }
+        );
+      } catch(e) { console.error("referral notify error:", e); }
+    }
+  }
+
   return c.json({ success: true, newBalance: result.newBalance });
 });
 
@@ -147,6 +167,12 @@ app.get("/api/photo/:fileId", async (c) => {
     const url = `https://api.telegram.org/file/bot${BOT_TOKEN}/${file.file_path}`;
     return c.redirect(url);
   } catch(e) { return c.json({ error: "File not found" }, 404); }
+});
+
+// إحصائيات الإحالات
+app.get("/api/referrals", async (c) => {
+  if (!auth(c)) return c.json({ error: "Unauthorized" }, 401);
+  return c.json(await getReferralStats());
 });
 
 // بث رسالة جماعية
